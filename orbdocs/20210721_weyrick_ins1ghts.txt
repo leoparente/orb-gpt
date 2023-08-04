@@ -1,0 +1,631 @@
+Introduction
+welcome back to another insights session
+katie tragerthe here with shannon
+weirich
+ns1's vp of research for the office of
+the cto
+shannon leads open source work at ns1
+and he's here today to talk to us about
+two observability tools that he's been
+working on
+pack advisor and orb shannon take it
+away
+hi thanks katie hi everybody my name is
+shannon weirich
+and i am the vp of research at ns1 and
+i'm going to talk to you today about
+extracting the signal
+rethinking network observability so if
+Observability in the industry
+you've been in the industry
+at all for some time either as an
+application developer or as an operator
+you'll have noticed that this concept of
+observability has
+has come a long way where today we have
+a lot of great tools a lot of great
+platforms and technologies for
+collecting all kinds of metrics really
+all across the stack
+whether that be in your applications
+directly on your systems
+in your vms in your containers in your
+clouds and your networks
+we have the right frameworks and sdks
+and sas products and agents and
+giant cloud data warehouses to collect
+all kinds of data
+but we can ask the question is it
+valuable
+to collect all of that data just because
+we can
+are we getting the right value out of
+collecting all of it so more data does
+Data vs information
+not mean
+more information or if we say that data
+is just a collection of facts that we're
+collecting and information
+is trying to understand those facts in a
+particular context
+and in that sense we need to extract
+information from the data
+right data is just bits on a hard drive
+somewhere until we take that and turn it
+into something
+and we could call that process of
+extraction pulling out the signal
+extracting the signal and so here at ns1
+we think about network data streams
+a lot very high rate data streams
+millions of packets per second scale
+coming into our
+systems and it's really important for us
+to be able to extract
+this signal that's inside of these data
+streams uh in in real time
+and um one you know particular use case
+for that is ddos mitigation
+it's really important that we understand
+what's the signal that's waiting in
+these data streams
+and so how can we think about ways to
+extract this signal
+so there's two basic ways i think we can
+propose and i've got some fake math here
+at the top
+just to kind of illustrate what it takes
+to extract
+the information the signal from the data
+and
+what it takes is the context we talked
+about we have to know what we're looking
+for
+and we need some compute power and we
+apply that to the data
+and that's how we get the signal that's
+how we extract the signal
+and then a lot of systems we've got data
+being sent
+in from all the sources we talked about
+whether that's applications or networks
+or
+things that we might call our edge and
+it sends data into a centralized
+system maybe that's a sas platform that
+you use for for collecting
+uh for collecting metrics it pulls it
+into
+a database and then we apply compute to
+it in this central way
+right in a sort of big data way where
+we're crunching all the numbers
+of all the data streams that are coming
+in in this in this central system
+but there's another way to think about
+it we can think about taking that
+processing that that process of
+extracting
+the signal and pushing it out to our
+edges
+and that would mean that at the edges
+directly
+we're tapping into these data streams
+and we already know what our context is
+and so we're extracting the signal there
+and then just pulling the signal
+into the central database and then
+that's where we can
+uh process it in the central way after
+we've already extracted the signal
+Processing the signal
+and so what would it look like what
+would be some of the advantages
+if we uh did process it that way
+so it would mean that we're collecting
+less data
+but more information right because we've
+already applied that extraction process
+and so our data sets are smaller and
+they're higher quality
+we know it's the data we're already
+looking for this can lead to
+longer retention we can keep it around
+longer we can process it easier now
+we're not necessarily processing
+terabytes of of unknown data coming in
+we're processing
+a lighter weight signal so that we can
+visualize and automate it
+it makes for reliable collection systems
+uh because
+we're now putting less pressure uh on
+the things that collect and shoot this
+data around and crunch the numbers
+and importantly it allows us to view the
+signal
+at the edge directly in that localized
+way so we have the option
+of looking at the signal directly on the
+edges
+and collecting it into that central
+location for a global view
+of uh of all of the data across all of
+your edges
+that you're collecting from so if we did
+have the system how would we orchestrate
+it how would we think about this this
+distributed edge that we can orchestrate
+and
+and and control this extraction process
+Project Overview
+so that's what we're going to talk about
+today uh so at ns1 we have an ns1
+research labs
+where we do think about open source
+software we do think about
+forward-looking technologies and today
+i'm going to talk about
+two particular projects the first one is
+pac advisor which is
+an edge observability agent and its main
+goal is to extract
+this signal that we're talking about
+then we're talking about orb which is an
+up and coming project that
+is also uh involves pac advisor but
+gives it a command and control center
+to be able to control these these fleet
+of agents so let's jump into that
+PAC Advisor
+so pac advisor is our observability
+agent uh it is an open source project
+it's available on github today
+and when we say it's an agent we mean
+that it's a piece of software
+that you install at your edge directly
+where the data source is and its job is
+to
+tap into to data streams and in this
+case
+it's able to tap into for example packet
+capture
+dns tap streams and potentially other
+streams in the future
+and its goal is to summarize critical
+data that's passing by
+in these streams in real time and this
+is that extraction process we talked
+about
+and it's able to provide both a local
+and a global
+uh view of the information uh that it's
+that it's able to extract
+so what's what's unique about pac
+advisor why are we thinking about this
+as a as a different
+project well it's really all about this
+concept that we're pushing the
+extraction
+to the edges we're able to use streaming
+algorithms and do deep analysis of these
+data streams in real
+time at the edges and be able to turn
+that data into
+information and signal at the edges to
+pull in
+an essential way later so it's not based
+on
+flow or sampling technologies something
+like an s flow or net flow it really is
+watching all the packets go by
+and again we're talking about uh small
+data and
+you know we use the term small data
+compared to big data
+we're collecting less actual data but
+more information more quality data sets
+so big information
+Collection Process
+so let's imagine the collection process
+of dns for a moment
+so if pack-a-visor is tapped into this
+stream of packets that are flying by
+it's watching dns packets go by on the
+wire and that's represented
+on on the left here there's information
+in there like
+i p addresses and ports and query ids
+and what's the dns question that's being
+asked and so forth
+and this raw traffic comes into the pack
+advisor system
+and it comes in in spikes right it's not
+a it's not a level thing
+sometimes it'll be high sometimes it'll
+be low but package advisor's job is to
+normalize that
+and to watch all of that traffic and
+turn it into one minute summaries
+and this is where we're now applying
+that context and that compute at the
+edge
+and extracting this signal and so when
+we say signal in the dns context what we
+mean is there are very specific things
+we care about we care about
+the top queries that we're seeing we
+care about the query types and the
+result codes that
+are happening on the servers the the
+rate percentiles and
+the ip sources encounters and other very
+specific things that as dns operators
+we know is the important information
+that we care about
+and so pac advisor is watching this raw
+traffic flow in and summarizing
+once a minute all of this important
+information and an interesting property
+about this system is that if you have
+low dns traffic or almost no dnf traffic
+it's producing these one-minute
+summaries they're the same size same
+small size
+on the other hand if you have a giant
+ddos attack and you have all of your
+pipes completely full
+you're still only having the same size
+summaries coming out of the end of pack
+advisor
+and so this is a really interesting
+property because it means we're not
+placing downstream pressure on our
+observability systems
+because pac advisor is doing this
+extraction uh directly at the edge
+and in particular because we're able to
+have a local view
+on the machines a real-time view this is
+really important
+to help us understand uh is there
+malicious traffic right now
+is there an attack going on and if so
+what are the key properties that will
+help us mitigate this attack
+and so again we might need to know an ip
+address or
+a query name or some other things that
+we can use to potentially mitigate an
+attack coming in
+so this is what packet visor looks like
+in the local sense
+this is a command line user interface
+that that comes with pack advisor
+if you've used command line tools before
+you might be familiar with the top
+command
+this is something like a dns top or a
+network top
+where it's an interface that updates
+once per second and shows you real-time
+information
+about these streams that are going by
+based on that signal that's been
+extracted if we look at the top part
+we can see we can see a list of packets
+and a list of dns properties that we're
+pulling out
+excuse me at the top we have a breakdown
+of protocols
+and packet rates and on the dns side we
+start to get into application
+layer information such as the return
+codes and
+uh transactions that are happening in
+dns land and we're able to pull out more
+than just
+simple counters so if we look at the
+packet rates
+this information here is telling us what
+are the
+different rates of traffic over the time
+window that we're looking at
+and so pac advisor by default will keep
+a time window of 5 minutes
+and that means that these numbers here
+represent the the 50th 90th
+95th and 99th percentile of packets per
+second that we're seeing
+fly past backadvisor and if we look on
+the right side uh
+maybe even more interesting is a
+cardinality number and so this is the
+number of unique ip addresses
+that we've seen in the time window both
+ingress and egress
+and that can tell us really interesting
+information
+especially if we think there's something
+malicious going on if we know that
+the normal amount of ips that we see is
+that a certain baseline number let's say
+it's
+a hundred if it jumps to a thousand
+something's happened
+right we know that we may need to look
+closer
+and if we look at the dns information we
+can find
+some similar things and so for example
+we're tracking dns transactions
+and the transaction is just a query
+reply pair
+and here when we have that we can start
+to measure timings how long did it take
+on our servers
+to receive the query have a server
+create an answer and send it back to a
+client
+and again we have the 50th 90th 95th
+99th percentile
+of those transaction timings and then
+finally on the right side again we see
+query names and so that answers the
+question how many queries
+uh how many unique cue names have we
+seen
+in the time window and again if this
+number spikes up
+more than it normally does it could be
+indicating an attack
+in particular a random label attack
+where the goal is to generate
+a random set of names to to query a
+server with to to create
+an outage and then most of the real
+estate is used for these top 10 tables
+and so we have a lot of different
+dimensions of of data here and
+in real time we're updating what are the
+top query names that we've seen
+at different aggregation levels and what
+are the top uh nx domain records we've
+seen in serve file records and result
+codes
+and we've also got the top uh names
+based on timings what are the slow
+queries that we're seeing both ingress
+and egress
+what are the ports we're seeing what are
+the top ips and down the bottom you can
+see
+even deeper information this is
+geolocation
+and network asns and so we can get a
+really good idea in real time again
+directly on the edge
+of who's querying us where is it coming
+from so in addition to the local view
+Pack Advisor Collection
+we also care about central collection
+right we want to see
+super real-time data directly on the
+node but we also want to collect this
+information centrally
+so that we can visualize an entire fleet
+of of agents and so the way pac advisor
+is written is we're able to collect
+this lightweight json data into central
+databases
+it plugs into observability stacks that
+you may be using today
+it's database agnostic and so you're
+able to write your own scripts
+to to process this information pack
+advisor
+produces a little web server locally
+and so pulling that data in is really
+just a matter of making a simple
+web query once per minute and taking
+that
+json data and sending it to your your
+database of choice
+and again we're dealing with we're
+dealing with small data and so the json
+summaries here
+are on the order of about four kilobytes
+per minute we also do support prometheus
+in a native way and so we're able to
+collect that native prometheus
+data and send that as well and once we
+Pack Advisor Visualization
+do get it into
+a central database we can use standard
+tools like arfana to visualize it
+and so here we see a grafana dashboard
+that's showing us a prometheus version
+of all of our metrics
+and you see that there's a lot of
+similarity between this and
+the localized view for example we see
+the tables down the bottom where we have
+the the top queue names and so we can
+visualize it in a similar way but
+potentially across a set of agents
+centrally
+so as i mentioned pack advisor is an
+Pack Advisor GitHub
+open source project you can find it on
+github in the ns1 labs organization
+we've got a release out 3.2.0 that is
+available for
+easy installation
+Pack Advisor Docker
+and there's two two basic ways to
+install
+you are able to build yourself but if
+you'd like to use some of our binary
+builds
+you can use docker so it's a simple
+matter of
+pulling the pack advisor container from
+the ns1 labs organization again
+starting up that container you do have
+to run it in host networking mode
+and simply give it the ethernet
+interface that you're interested in
+listening on
+and once that's running um again it
+exposes a small http
+interface and the uh the built-in
+command line interface is able to
+connect to that and show you the
+real-time data
+and again you're able to collect it also
+centrally
+by by accessing that server that it runs
+and the container itself does contain
+both the pac advisor agent
+this pac advisor d as well as the
+command line interface pack advisor dash
+cli so if you don't use uh docker
+there's a very similar way to install
+the binary
+and that's with our static linux binary
+it's using app image
+and so again it's a very simple command
+to download this binary
+make it executable and then
+this binary does also include both the
+agent and the command line interface
+and so again you run it on the interface
+that you're interested in and you're
+able to run the ui
+on top of that that's pac advisor and
+ORB
+we've developed that over a number of
+years here in-house we've used it
+internally operationally for many years
+and over the years we've thought about
+how can we turn this into
+a project that can
+think about observability in a new way
+and so
+orb is a new project that we've started
+also available on github
+it's much newer though and the goal is
+to
+create a control plane to be able to
+manage a fleet
+of pac advisor agents and to do this
+we're
+using iot internet of things technology
+to think about
+how to connect and control these fleets
+so here's a picture that looks very
+similar to the one we saw before with
+pac advisor
+when we were collecting things centrally
+and that's because in orb we do
+also think about collecting this
+information centrally
+but we are adding another component
+which is that we're able to
+connect out to the edges or rather the
+edges connect into the control plane
+and the control plane is able to
+communicate with them and to give it
+instructions
+right so the idea is that you will run
+an agent
+on your edge locations right this is
+where you distribute
+these agents as close to the edge as
+close to your data streams as possible
+so that we can extract that signal in
+various ways
+and what will happen is these edge
+agents connect into the control plane
+using iot technology protocol called
+mqtt
+and it will be able to ask
+um what are my instructions what are the
+policies i should be running to collect
+and so we can reprogram these agents
+dynamically in real time
+and think about building different data
+sets in real time based on
+the agents that are living at the edges
+we also have the ability
+to decide where to send the data once we
+know that we have a policy that we'd
+like to collect
+where do we send it to so that's what
+the data syncs are so here's a
+IoT Control Plane
+zoomed in view of the iot control plane
+so these are
+some of the components and so the idea
+is that
+it's an api first cloud control plane
+as i mentioned the agents are able to
+connect into this with a simple
+lightweight protocol mqtt
+and a user is able to create policies
+that they're interested in
+send it into the api using using a ui or
+connecting directly with automation
+they're able to use tools like grafana
+still to access
+and visualize the output of the system
+and they're still able to get directly
+to the edge
+if you want and get that hyper local
+view based on any of their the running
+agents as well
+so some of the goals of orb we have so
+Goals
+as i mentioned it is an open source
+project we are interested in
+collaboration
+we'd like to keep it vendor neutral and
+it's being built in uh in a modern way
+it's based on
+microservice architecture it's able to
+run in kubernetes
+and the goal of it is to be able to have
+this control plane that can control
+these fleet of pac advisor agents
+and we want to be able to provide this
+single pane of glass
+dashboarding experience for all of these
+agents
+and the dynamic part of it will be to
+create and explore different ideas of
+signal different ideas of data sets
+in real time in addition to having those
+data sets
+be able to sync to perhaps cloud
+locations maybe you want to send it to
+something like an s3 bucket
+or maybe you want to send it to your
+central database so that you can collect
+everything together and run automation
+or analysis or extra alerting
+on that signal you've collected so it's
+Github
+a project that's also in the ns1 labs
+github account um
+check it out we do have uh we do have
+our work
+displayed on here you're able to
+communicate with us and join in and
+collaborate we'd love to hear
+use cases and how people i think
+thinking about
+using this project and that's all i have
+Conclusion
+for you
+so i hope this was interesting thank you
+very much appreciate your time

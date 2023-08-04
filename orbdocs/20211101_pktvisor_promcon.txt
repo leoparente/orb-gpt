@@ -1,0 +1,696 @@
+Intro
+my name is shannon weirich
+i'm the vp of research at a company
+called ns1 and today i'm talking about
+pack advisor let's pronounce pac advisor
+the talk is deep network traffic
+observability with pack advisor and
+prometheus
+let's jump in
+so i'll talk about this project that
+i've been working on called pac advisor
+and also a project that's grown out of
+pac advisor called orb and together the
+goal is to supplement modern
+observability stacks and help you with
+edge network observability
+both of these projects are free and open
+source and their goal is what we call
+dynamic orchestration
+of business intelligence at the edge
+if you haven't heard of this term
+business intelligence it means
+extracting actionable insights from
+these data streams
+and the goal of these projects is to
+push that process out to the edge
+so we'll give a little context on
+deep network observability talk about
+the pac advisor project
+build on top of that to
+using pack advisor with prometheus
+and then get into the work project
+What is deep network observability
+so deep network observability what do we
+mean by that so this is this idea that
+we can examine the traffic flows that
+are happening between
+end users and applications or among
+the services that make up your
+application
+and we can inspect that network traffic
+and if we can do that we can often gain
+insight into
+helping us run the applications uh
+helping us operate them helping us
+debug problems increasing security
+but analyzing this traffic
+especially in a deep way
+and collecting the results of that
+can can be challenging
+especially if you have
+a very distributed application maybe
+among
+hybrid infrastructure among many
+geographic regions
+among nodes that are coming up and down
+frequently
+so there's a lot of challenges there and
+the question is how do we orchestrate
+that to be able to extract these
+insights that we're talking about
+so a little context from ns1 where these
+projects are coming out of so at ns1 our
+goal is to connect applications and
+audiences that means application traffic
+optimization
+and one of the ways we do that is with
+our managed dns network so we have this
+global anycast network
+with many pops around the world that's
+delivering this this dns traffic
+and uh we need to maintain this network
+right we need to tune it and uh so much
+like a cdn our goal is to get these
+endpoints close to our end users so we
+can give them the best experience
+and so we need visibility into those
+traffic flows so that we can we can do
+that tuning
+we are often the subject uh to attacks
+right malicious traffic ddos attacks and
+that's actually one of the ways that uh
+pac advisor was originally created was
+to give us visibility into this type of
+traffic to help us understand it to help
+us protect against it
+and then this visibility we're talking
+about has sort of two different ways uh
+that that we need to understand one is
+this at the node very high resolution uh
+very real time understand exactly what's
+going on help us help us debug
+individual nodes
+and then we need this ability to to back
+out and get this global view of our
+entire network
+to to gain insight at that global view
+or maybe at the regional view
+and we want to be able to
+look at different dimensions over time
+of this of this network traffic
+so what are the questions that we want
+to ask of this data what are these
+insights we want to pull well it
+certainly includes uh
+simple metrics that
+you're all familiar with counters and
+rates of things so of course how many
+packets have we seen
+on a certain interface or what's the
+rate of ingress or egress
+but this is where we want to go deeper
+we want to use streaming algorithms to
+do this deeper analysis and give us
+better insight directly at the edge here
+and so one example is frequent items
+otherwise known as like heavy hitters
+top 10 lists
+across different network dimensions so
+that that'll be things like what are the
+top 10 ip addresses what are the top 10
+queries
+we care about uh
+cardinality so again right there on the
+edge we want to know things like how
+many
+unique ip addresses have we seen in a
+certain time period right how many
+unique uh query names have we seen in a
+certain time period
+quantiles and histograms uh also very
+useful of course what's the p90 or p99
+of of a transaction timing what's the
+histogram of different response payload
+sizes happening right now
+on the security side so amplification
+factor
+is useful are we seeing very small
+queries come in but very large responses
+go out are are people abusing that right
+now
+for anybody who's familiar with dns at
+all uh you might have had this problem
+before which is i deleted a dns record
+who's still querying this record that i
+thought i deleted right and trying to
+track that down find the sources
+and also when we care about the sources
+of things we care about what geographic
+regions are queries coming from and what
+asn numbers are are querying
+our network
+uh and then you know just to summarize
+the security bit again understanding
+whether traffic is malicious or
+legitimate uh is uh something we need to
+do and it's not always that easy to
+figure out just because we see a spike
+in traffic doesn't mean that it's
+malicious right it could be legitimate
+it could be uh in our case it could be a
+recursive resolver farm whose cash has
+gone cold and they're just sending a lot
+of queries into us at the moment
+but if we do think it's malicious we
+need to understand
+uh what type of attack it could be is it
+a random label attack is it widely
+distributed
+and that that widely distributed piece
+by the way
+is where this cardinality can help us if
+we see the number of unique ip dresses
+uh blow up in a very small period of
+time it could indicate a distributed
+attack
+so again what protocols are there what's
+the target these are these are the
+questions we want to know
+What is Pktvisor
+so let's jump into the packet visor
+project so it is spelled pkt visor but
+we say pac advisor
+so this is a free and open source
+observability agent
+backed by ns1 and again it grew out of
+our need to observe our critical
+infrastructure
+over the past several years it's gone
+through a few rewrites
+and in the
+most recent rewrite
+we've had a couple of a couple of goals
+it's traditionally packet capture
+focused and so it's a tool that
+currently operates mostly in the way um
+that you might be familiar with like a
+tcp dump or a wire shark where it's
+analyzing packets on the wire
+but one of the goals of the most recent
+rewrite is to have a very plugable
+system both for
+the way we get data into
+it and the way that we analyze the data
+and so there's a modular system for
+doing this
+we can imagine many more
+types of input sources this is where we
+might start seeing things like s flow
+and net flow input sources dns tap
+ebpf uh
+envoy tabs right the goal is to
+have this pac advisor agent sit close to
+data sources and be able to passively
+observe using this this tap methodology
+another big goal of the project is to
+drive observability through dynamic
+policies and that means that the tool
+itself exposes a local rest api
+where it can be reprogrammed in real
+time as well as offer a way to
+collect the metrics that are coming out
+of it
+and of course we wanted to plug into
+modern observability stacks and a big
+part of that is offering native
+prometheus output
+so here's a view of
+pac advisor as it's watching in this
+case raw dns traffic and i'll mention
+that of course because it grew out of
+this ns1 company and it grew up
+sort of observing dns for us
+some of these examples are dns focused
+but it's not limited to dns
+it's able to
+to do inspection on different types of
+traffic different protocols and
+certainly as we get more input sources
+that will expand as well
+but pac advisor's view is this data
+that's flowing along the wire it's
+coming in in waves it's it's going up
+and down
+and it's able to access information
+that's inside the packets and that's
+certainly things like the source ip and
+the destination ip but when we say deep
+analysis that means it's going in and
+it's getting to that application layer
+information and it's pulling out things
+that are specific to applications right
+so in this case dns
+and that means query id query name
+uh number of records that are that it's
+returning the type of query and so forth
+and so it's observing this in real time
+as the traffic is coming in and it's
+summarizing it's using these streaming
+algorithms to pull out all the answers
+to those questions that we asked earlier
+and so we're able to get
+a one minute bucket by default one
+minute
+buckets of information and these are the
+top queries and the rates and
+percentiles uh and and all the metrics
+that we mentioned before
+so here's a view of pac advisor and it's
+it's policy system and we're focused in
+on again a raw input stream here which
+is an ethernet interface
+and i've got three example policies and
+all three of them are currently tapping
+into this eth0
+and when they do that they're able to
+specify a filter at this point and in
+this case it's port 53 and
+this is filtering at the kernel level
+this is a bpf filter
+and it means all of these policies are
+able to process network traffic which is
+focused on port 53.
+and then these three other policies that
+we see here are working concurrently and
+so the first policy has two different
+analyzers attached to it one is a
+network analyzer one is a dns analyzer
+and both of these are working again with
+these trimming algorithms to pull out
+that information and so we're pulling
+out the network information we're
+pulling out the dns information but we
+also in this first policy have added
+another filter and that's where we are
+focused on nx domain traffic and in the
+dns world that means a record that was
+not there was queried and so this first
+policy is geared towards finding the
+queries that are coming in that are
+causing nx domain traffic to happen
+so it's gathering
+the results of those metrics in in
+memory and it's making that available
+for collection and it's making that uh
+available both as prometheus native
+output as well as json output to be
+scraped again on this local web server
+that's running
+so concurrently then we have another
+policy and this time it just has a
+dns handler attached
+and it's focused on in a different way
+it's it's pulling out all the same
+information all the same metrics but
+across a different dimension here where
+the query name is enzinfo.com
+and so we'll get all the same metrics
+but only for uh records which end in
+food.com
+and again that's exposed on a on a
+separate endpoint and then finally we
+have another policy which is just
+looking at network information but it's
+been configured to collect every 30
+seconds and so
+we can also imagine that there's
+multiple inputs happening at the same
+time as we add things like dns tap
+support
+or s flow support you can concurrently
+run other types of inputs and other
+types of policies and we can spin these
+policies up and down in real time
+so here's a console view
+on the left hand side you'll see that
+we're querying this local pac advisor
+instance which is running on a port here
+and it's accessing the json output and
+so on the left side you start to see
+things like the rates uh the top queue
+name two the cardinality of q names that
+we discussed so it's all available in a
+generic json format and on the right
+hand side it's querying a slightly
+different endpoint and you see the
+prometheus version of that output all
+the exact same data but in prometheus
+compatible output
+and here's another way to view it so
+included in pack advisor
+is a command line user interface and so
+this is attached on a local node to the
+local pac advisor and it's reading that
+high resolution data in real time and
+displaying it
+in your console so at the top again we
+see a summary of a lot of the packet
+information a lot of the dns uh header
+information
+and then most of the real estate is
+taken up by these top lists that we care
+about the top query names the the top
+slow
+transactions top geolocation and so
+forth
+we've tried to make pac advisor very
+easy to use and install so it's
+available as a docker container it's
+also available as a static binary but in
+this instance we're seeing that we can
+just pull the pac advisor if we want to
+start with a very simple default
+collection policy
+here's a command line that will do that
+we're telling it that we want to run the
+packet visor daemon we want prometheus
+support and then we give it an ethernet
+interface
+substitute in of course what's
+appropriate for you
+and then we see a familiar endpoint that
+lets us collect the prometheus metrics
+uh directly
+and finally as i mentioned the command
+line interface is included inside of
+that docker container and so you can
+attach and
+watch those metrics directly on the node
+this is an open source project it's
+hosted on github and the ns1 labs github
+organization
+we do welcome contributors there's
+there's a lot of different ways you
+could contribute to the project and we'd
+certainly love to see that
+please start the project if it's
+interesting to you as well
+lets us know
+Pack Advantage
+uh how much interest we have in the
+project
+and let's talk about pack advantage with
+prometheus so we talked about pac
+advisor itself which is directly on a
+node now we want to get a more global
+view than a single node now we want to
+pull in multiple nodes into a central
+prometheus database and let us visualize
+all of that information
+so that gives us this global view and
+we're able to scrape uh the pac advisor
+agents uh as we saw from that endpoint
+we're also able to use remote write
+which i'll show in just a second and
+once we do that all those metrics that
+we saw from all those policies now go
+into the prometheus ecosystem and we're
+able to use familiar tools for exploring
+that data and visualizing creating
+dashboards and alerting
+Prometheus Ecosystem
+that looks something like this so we can
+imagine that these pack advisor agents
+are installed in multiple locations
+hybrid topologies um it's it's it's a
+sidecar agent style uh it can be in
+containers vm servers we've started
+putting this directly onto routers and
+switches
+and again the idea is to pull this
+information into prometheus database and
+then set up your tools to get this
+broader view
+Pktvisor
+there's a docker container that's
+available that helps you uh with a
+push-based system so pec advisor prom
+right is available on the ns1 labs
+organization and this is basically pac
+advisor that's been packaged along with
+griffon agent and so it knows how to
+locally query the pack advisor do the
+scrape for you and then push it out to
+any remote write compatible interface
+Sample dashboards
+we do have some sample
+dashboards out there and so this gives
+you a head start on
+using the actual metrics that come out
+of pack advisor
+and that's available on the grafana labs
+community site
+Viewing metrics
+here's a quick little movie of what it
+looks like to see some of those metrics
+so this is just the explorer section of
+grafana if we type dns in we start to
+see that list of metrics that
+packadvisor is generating
+and we can quickly drill down select
+what we'd like and create graphs help us
+create dashboards
+Premade dashboard
+and then this is what a
+our premade dashboard looks like and
+this is basically all the information we
+saw inside of the pack advisor command
+line interface but now we've pulled out
+to that that larger view now we're able
+to select different nodes from different
+regions show multiple agents in the same
+dashboard and so forth
+Orb Project
+okay i'm going to talk quickly finally
+about the orb project and so if we have
+our our very local node view of a pac
+advisor and we have the ability to
+pull the information from those pac
+advisors and get a global view
+we still have some challenges
+one of them is
+uh
+how do we how do we organize all of
+these pac advisors now we have the
+ability to have policies that are
+spinning up and down inside of the pac
+advisors in real time but how do you
+orchestrate that how do you actually
+collect
+and access these agents that you've
+installed in different places and send
+them policies and collect the
+information
+so that's what orb was created for
+Orb Platform
+so this is a very new project
+it is also open source
+and it's a platform that helps us solve
+these issues
+it's based on iot principles and and in
+the system we actually consider the the
+orb agent which includes the pac advisor
+as sort of a software iot device
+uh and the the platform itself provides
+a user interface to be able to
+manage these uh these fleets of agents
+it provides a rest api to be able to do
+automation against them and it handles
+agent communication to talk to these
+software agents
+and the whole goal here is being able to
+orchestrate the agents that are sorry
+the policies that are going to the
+agents and to be able to collect the
+information that's coming back for them
+as they spin up and down and get them
+syncing to
+your time series database
+Orb Agent
+so
+orb itself it's a multi-tenant system it
+allows for this fleet management it
+allows you to understand what agents are
+collecting into your system to organize
+them to group them based on a tagging
+system
+and that's what lets you address the
+agents that are out there and send them
+policies so it lets you
+organize your policies as well be able
+to
+send them out in real time
+and then it handles
+being able to understand which policies
+are running on which agents collect the
+information back for you and you can
+send it to your time series syncs
+it's uh it's meant to be
+used in two ways and so there is a helm
+chart available that will help you
+deploy to kubernetes and you can run the
+control plane yourself we will also plan
+on uh having a free sas if you don't run
+the entire control plane yourself and
+you'd like to use the functionality and
+just install the agent on your devices
+we'll have
+we're planning sas at this web address
+and there is modular support for the
+observability agent too so pac advisor
+is essentially a module for orb we might
+even run other types of observability
+agents inside the orb agent in the
+future as well
+here's a quick diagram of what this
+looks like so we've got the pac advisor
+agents coming into the orb control plane
+it uses the mqtt protocol which is which
+is a known protocol that's used with iot
+and we've got a couple of micro services
+that are handling the control plane
+functionality and the user interface
+which lets you
+organize your policies and your fleet a
+key point here is that
+orb itself is not concerned with
+visualizing the actual output from the
+agents it will help you organize things
+it will help you send the data to your
+data syncs of course including
+prometheus
+but you would still be using all of your
+familiar tools to actually work with the
+data that orb is collecting for you
+Orb User Interface
+quick screenshot of what the user
+interface looks like this is under heavy
+development by the way
+in terms of where orb project is our
+goal is to have an mvp at the end of
+this month
+to for the first time have
+end users install the entire control
+plane and use the system so again it's a
+very new project but here we can see
+that there's a list of agents that have
+uh that have logged into the control
+plane we can understand when the agents
+are online um there's a heartbeating
+system there's a tagging system we can
+see what policies are running
+and this is also an open source project
+also on github at the ns1 labs
+organization
+Summary
+and that about winds it up just to just
+to summarize again this is pac advisor
+and orb and the goal is to to fit into
+your observability stacks and to help
+you with edge network observability
+they're open source projects
+and the entire goal here is dynamic
+orchestration of business intelligence
+at the edge
+Questions
+with that i will wind it up thank you
+very much for your attention you can
+find more information at these web
+addresses
+my email address is here please contact
+me anytime if any of this is interesting
+you'd like to discuss some of this
+further
+we do have an announcement list here if
+you're interested in the sas please um
+join there we have a slack as well
+and i'll be here all week if anybody
+would like me to demo some of this
+functionality i'm happy to do that
+and of course you can contact me on the
+virtual platform as well
+thank you very much
+all right does anybody have any
+questions
+thank you
+here do you want to
+can you hear me yes
+from upscrews
+so
+really cool project especially the one
+that you just discussed
+at the pac advisor how do you handle uh
+encrypted data when it's coming in
+yeah this is one of the reasons why uh
+the packet analysis can only do so much
+right um
+so the strategy there is to use a tap
+system that
+where the applications themselves can
+expose the information directly and so
+for example in the case of dns there's a
+a system called dns tap where instead of
+watching the packets almost all the
+major dns providers support this dns tap
+system which gives you almost all the
+same information
+and this is going to be important
+because dns over https dns over tls
+are coming out
+and so
+you would be observing by tapping
+directly into the information that's
+streaming out of the application
+envoy taps is another uh example here
+where the applications themselves are
+beginning to expose
+uh to expose streams of data that we
+could analyze but when you talked about
+even evpf that's still there and ebpf
+yeah so i think something going on there
+that we can tap into
+there's information from the system
+that's network related this is something
+that we're just exploring now so i don't
+imagine it's going to be using ebpf to
+analyze the packets themselves uh but i
+if anybody thinks that's possible i'd
+love to talk with you
+all right great thanks so one if i can
+add on uh overhead on running
+packadvisor so yeah doing streaming
+algos too yeah so it's meant to be uh
+it's meant to be efficient of course
+it's written in c plus plus it's using
+efficient algorithms but if you're if
+we're pushing compute to the edge then
+of course that compute exists at the
+edge and so there is some overhead um
+this is one of the reasons why the
+policy system is important because with
+policies you should be able to craft uh
+exactly the uh policy you'd like in
+terms of
+only collecting and analyzing the data
+you'd like and only
+collecting in the information you'd like
+and so the idea is that
+you're able to uh to to not just stand
+up an agent that uses an arbitrary
+amount of cpu but decide exactly what
+your policies should look like and so
+you get to choose what cpu to use
+any other questions
+all right thank you very much thank you
+everybody

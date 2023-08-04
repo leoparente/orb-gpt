@@ -1,0 +1,753 @@
+holding your attention to the last talk
+of the day
+uh let's jump in i'm gonna start with a
+quick poll of the audience as well so
+who here is currently processing
+visibility data some kind of
+telemetry from their infrastructure
+fans go up good awesome
+quick follow-up question
+who thinks they could be getting more
+out of that solution in other words who
+who's not quite happy with who thinks we
+could do better
+a couple of hands okay that's that's
+great context
+so i'm going to talk about
+this concept i've been thinking about
+called small data and
+see if it sits with you folks so i'm
+going to come about it from the angle of
+the company i've worked for for many
+years so ns1 and we
+among other things do manage
+authoritative dns
+we have a global anycast network
+that serves dns queries for our
+customers
+we're doing
+something in the order of 100 billion
+dns queries a day
+on a good day on an attack day maybe
+that's higher
+and of course we are collecting
+telemetry from our systems so we're
+looking at flow data
+uh we're pulling it into systems we're
+processing it we
+are also looking at the packets
+themselves and extracting information
+and i would say that um the way we've
+thought about how to do that over time
+has changed
+uh and
+you know maybe some of you will uh will
+associate with this but early on
+we thought what data should we collect
+well let's collect all of it all right
+that gives us the ability to
+ask any questions we want we're not
+quite sure what we want from the data
+yet so let's just stuff it all somewhere
+and then we'll figure out what to do
+with it
+and
+over time i think what we've learned is
+that that's not actually what we want or
+at least that there are other strategies
+to think about
+and what we actually want are targeted
+insights the things that help us today
+to operate and debug and scale protect
+our network
+and we've you know i would argue that
+there's a price to pay for
+streaming raw data to some kind of
+central solution and that there is
+another way to think about it
+some of the lessons that we've learned
+over time just by dealing with trying to
+push a lot of data around so often
+there's complicated data pipelines
+um you have to find ways to collect it
+all to ship it around it's often a
+patchwork of different tools
+and then you have to do something with
+it right so the raw data isn't
+particularly useful you have to process
+it in some way
+there's cross facilities associated with
+that both both time and
+money
+and uh then you have to start to make
+sense the data right sometimes sometimes
+that's hard you're not even sure what
+the data is telling you you have to be
+able to extract the insights you're
+looking for
+you know and so you wind up having a lot
+of data that you're not even sure you're
+getting all the value out of
+and in the past we've also seen
+you know these types of solutions can
+lead to slow dashboards and
+uh the short retention times because we
+can't store that much
+and in times of problems if you're under
+some kind of attack or something
+it can take time to get that information
+through your system so that you can
+visualize it and understand what's going
+on and ideally you want that information
+directly at the edge directly close to
+where the events are happening
+so i've been thinking about um this
+different way to do it so i'd like to
+propose this idea of small data
+and what i mean by that is to
+uh to think about pushing that
+processing that we do after collecting
+all of that raw data push that out to
+the edge
+and
+be able to look at the data in real time
+that's coming into our edges right we
+know that there's a lot of interesting
+information in there that we want
+operationally
+but let's push that analysis out there
+and extract those insights that we're
+looking for in real time at the edge
+and if we think about doing it that way
+there are several benefits right so one
+is we can react quicker because we have
+those insights available local to the
+nodes where where the source
+of the events are happening and so we
+can potentially action on that
+information immediately faster but we
+can also collect that centrally right so
+we we do have the global view of what's
+going on across across our
+infrastructure across our topology
+and in general if we do it that way
+we have less data to deal with right
+we're collecting
+less data
+we are processing less data we're
+storing less data
+and one of the ways you know i've talked
+about this is that rather than thinking
+about collecting a bunch of data and
+then later on theoretically we'll find
+the needle in the haystack when we're
+ready for it
+let's just collect the needles let's
+just collect the insights we're looking
+for that help us operate today
+and part of that uh proposal
+is that we want to decide what those
+needles are we want to decide what the
+insights we're looking for are
+in real time and so we need this dynamic
+ability to tell our observing tool at
+the edge what we're interested in
+so my name is shannon weirich i've been
+in the internet infrastructure industry
+for quite some time i spent the last
+eight years at ns1 and the last year and
+a half or so working on the orb project
+that i'm going to talk about at ns1 labs
+this is my email address i'd love to
+hear from anyone who's got thoughts on
+anything i'm talking about
+so i'm going to give a quick tldr also i
+know it is the last talk of the day i
+know we've got an event right after this
+so if anybody uh kind of wants to hear
+the quick summary in a few slides and
+then slip out uh i have no problem with
+that
+orb is an open source edge observability
+platform
+so it's a tool that we've been working
+on that's designed for distributed edge
+networks
+it uses this small data paradigm that
+i've mentioned
+and it combines that with this idea of
+dynamic policy orchestration that we can
+reprogram our fleet of observers in real
+time
+and the goal is to extract insights at
+the edge
+from all this data that's flowing
+through
+and pull it into our observability
+stacks so we want to integrate with
+modern observability stacks
+and everything i'm going to talk about
+is free and open source
+this is a dashboard right just to kind
+of cut to the chase a bit here's an
+example of something you can put
+together with the output of this orb
+system this is a community dashboard we
+have on grafana
+and right away we can start to see
+some of the information
+that we're talking about when we say we
+want to extract some things at the edge
+and the idea is that we can do some
+deeper streaming analysis at the edge
+using
+using
+data sketch algorithms that can examine
+and summarize the data in ways
+that we care about and a lot of that are
+things like tops right we care about
+various
+layers of the of the network packet that
+we see we care about top ips and
+top asn's top back and we also want to
+go a level deeper sometimes certainly
+the background of this project is coming
+out of a dns provider so we have very
+good dns support
+and to operate our networks we care
+about top queue names top r codes top q
+types and things like that you would
+expect
+and then on the networking side digging
+into the flow data and being able to
+to pull out interesting information as
+well so this is the system that i'm
+going to talk about
+and since we don't have too much time
+i'm going to dive
+right in so i'll start with the uh
+control plane side of it so there's
+really two parts to the orb system
+there's the centralized control plane
+and then there are the there's the edge
+agent that gets deployed into your
+infrastructure
+and for the control tower it's got
+several services right this this central
+control uh plane gets installed into
+kubernetes
+uh or you can use our sas that i'll talk
+about but it's um it's responsible for
+providing the services we see here first
+of all there's a rest api right we all
+we all want to to automate there's also
+a portal to help you manage these things
+we see here and the first thing is fleet
+management so the idea is that we want
+to be able to work with a range of
+agents that are out there that are doing
+this observation and that means we need
+to provision them and connect them and
+organize them and so forth
+next is the policy management and so
+this gets to this idea of
+of dynamic orchestration we want to be
+able to tell these agents in real time
+and reprogram them in real time and so
+that means we need
+a way to store the recipes that we plan
+to send out to them right so policy
+management is built in
+sync management so once the agents are
+out there doing their thing we want to
+collect that information and put it
+somewhere so this is built into our
+system it's not a separate step creating
+data pipelines
+we will collect the the metrics and
+information and telemetry coming back
+from these agents and send it to async
+which is essentially the database where
+you'd like to see it so that you can run
+your dashboards and and and use that
+data
+and then there's this configuration
+management aspect to it right so this is
+something like you know your ansible or
+your puppet or something where
+part of the ord platform is the ability
+to
+address your fleet into groups and
+decide which policies
+to send to which groups in real time
+uh so here is a quick
+uh architecture overview it's actually
+pretty busy i'm sorry about that let me
+just run through it a little bit the big
+cloud in the middle is this orb control
+plane that i've that i've been talking
+about uh as i mentioned it can be
+self-hosted so you can run your own on
+kubernetes
+we also do have a free sas site called
+org.live which you can check out anytime
+if you'd like
+and that's if you don't want to do the
+self-hosting part
+but we see that it does provide the rest
+api you can automate against it the ui
+connects into this and then the whole
+top part represents the agents right and
+the idea is that you want to install
+these agents uh as close to the event
+sources as possible and we're able to
+ingest different types of events which
+i'll talk about in a few minutes but
+that may be from a dns server but it may
+be from a router or a switch
+it may be embedded in a vm or a docker
+container somewhere
+and you want that fleet to connect into
+the control plane
+we have the ability to send policies out
+to this fleet and
+collect back the metrics and the logs
+that result from that
+and then we send that out to the sinks
+so uh
+the actual dashboarding and
+visualization that's not part of orb it
+would we would expect that you have
+an observability stack that already runs
+that we want to connect to that and let
+you use your tools to to use that data
+i'm just going to go through real quick
+you know what what this orb ui looks
+like to give a bit of flavor for it so
+the fleet management has what you'd
+expect here's our list of agents that
+have connected in
+we can see that they're online we can
+see which are offline which may have
+gone stale
+there's a tagging system to organize the
+agents and be able to address them
+you can see what's running on them in
+real time
+policy management lists these recipes
+again that we care about we're telling
+the agents how to analyze the data which
+data we're interested in which of these
+needles in the haystack that we're
+interested in pulling in
+syncs let us define our databases that
+we want to send to you can define many
+syncs you can decide
+which data to sync
+from which agent so you can have from
+the same agent you can send it to two
+different databases and do some pipeline
+management that way
+and then we decide
+how to take a policy and send it out to
+the different groups of agents and this
+happens in real time and
+individual agents can run concurrent
+policies and we can spin them up and
+down at any time
+and again the dashboarding piece of it
+this is a this is a view of grafana
+again where we're watching the results
+of the metrics from
+uh that we've collected
+so that's the control plane side of it
+and so the other piece of it is the edge
+piece right so what is this tool
+that sits at the edge and is doing this
+streaming analysis
+so this comes from technology that we've
+built over the years inside of ns1
+called pack advisor
+and its goal is to tap into data streams
+at the edge right and so originally
+um this was focused around capture
+uh we were using it on our nodes to
+mostly look at the dns traffic but also
+help us understand you know the general
+network traffic going on
+but uh it's it's a
+it's a passive system for looking at the
+data that's flowing by and uh it's using
+these fast streaming algorithms to
+analyze deeply
+and
+as we'll see in a minute
+there's the concept of
+using packets and so we can do some deep
+packet inspection but there's also other
+types of information that we can tap
+into and use the same concepts of
+analysis
+and apply to different types of tabs
+but the goal is to is to summarize is to
+pull out these insights we care about
+and kind of leave the leave the raw data
+that's not interesting for us right now
+pull out those uh those interesting
+summaries that we care about and
+generate metrics to collect back
+and as i mentioned this can be
+reprogrammed in real time
+finally it's been built to scale up and
+scale down
+so this edge agent
+is meant to be deployed
+to handle a lot of traffic and so we can
+run it we can kind of scale it
+horizontally even on a single node and
+we can also scale it down uh and into um
+embedded systems right so we've got one
+running on a raspberry pi for example
+but that also might be um switch or
+router or something
+it's written in c plus plus if that's
+important to anybody but it is meant to
+be efficient
+so what types of things can we tap into
+so
+uh i mentioned packet capture is one of
+the things that we do
+dns tap is another uh standard that we
+support and this is supported by a lot
+of the big open source dns
+servers uh
+similar to packet capture but we're
+sucking in all of that um those those
+the dns information and analyzing that
+in real time
+and we've recently added flow data so s
+flow net flow ipv ipfix
+uh and other taps to come and so this
+this tap system is built uh to be
+modular and to be expandable so we can
+have
+essentially a plug-in system for it that
+lets us
+tap into new things in the future
+and what kinds of metrics are we
+generating right now so it is focused on
+the metrics that we've needed at ns1 to
+help us operate the networks over time
+but again this is something that we're
+expanding so there's l2 l3 network
+metrics dns dcp
+and flows
+is what we've focused on so far policy
+resource usage is um is another one and
+that's because as we start pushing
+policies to the edge we do care about
+how many resources we're using so we
+need to be able to understand
+uh you know as we're sending these
+dynamic policies how much
+of this edge compute resources are we
+using
+so we generate metrics based on that a
+sort of reflection piece
+and again this is a this is a plug-in
+system and so we'll be expanding these
+as we go as well
+so here's a diagram of what it looks
+like inside of pac advisor
+to process the data so essentially we've
+got embedded data stream processing
+and i know this one's a little busy as
+well i'm sorry i'll try to explain it a
+bit uh but it's it's trying to to show
+the concept that we can open up multiple
+inputs on the same agent and handle
+multiple policies at once as well and so
+what we see here are that we've got
+three policies total represented by
+these yellow boxes in the middle um but
+they're attached to two inputs and so
+we've got two two tabs open here one is
+on packet capture
+and we've set that up to look at eth0 in
+this example
+and on that same agent we're opening up
+another tap which is to look at flow
+data right and it's it's bound to a port
+there and so both of those are
+waiting for data and processing the data
+as it comes in
+and they were fired up because we'd sent
+these policies out and so uh the first
+two policies are dns focused and
+they both uh attached to the packet
+capture input and they have a particular
+filter so part of the configuration of a
+policy is which filters are we are we
+using in in this case we're looking at
+port 53 because we're interested in dns
+but we have two different policies
+hanging off of that and the first one is
+uh it's been told to analyze the network
+uh so that's going to pull things like
+top ips and source ports and again that
+l2 l3 layer
+and then we also have the dns handler
+but the dns handler in particular has
+been configured to
+only look at dns
+packets that are nx domain
+right so this particular policy that
+we'd sent out
+is helping us understand nx domain
+traffic
+and
+the the associated network metrics right
+and so that will generate a time series
+specific to that policy off to the right
+there and so this is it's keeping this
+in memory
+uh for up to a couple of minutes right
+there's no actual local data store it's
+not writing to a database it's in memory
+and it's the responsibility of the orb
+agent to scrape that data out and keep
+that pipeline flowing back to our
+central location and this information is
+available locally for usage too right so
+there's a there's actually a local rest
+api that you can write automation
+against and use this data in real time
+directly on the node
+but the second policy that we have here
+it's also attached to the to the packet
+capture and it's generating the same uh
+metrics on the dns side because we have
+the dns handler here
+but across a different dimension because
+this filter is on coo.com and so it's
+gonna it's gonna
+activate a sort of similar dashboard
+except it's only gonna be showing top
+queue names uh well not the top q as in
+this case because we only have one but
+you know the ports it's using and the
+result codes and things are going to be
+focused on this filter we have for
+food.com and so we fired up a very
+specific policy to help us debug that
+and that's going to fire back into uh
+and get collected back into the system
+as well and then finally the last one
+you know while all that's happening
+we've also got this flow processor
+happening which also has a filter you
+know in this example we've focused in on
+this one net block and we're processing
+flow metrics and generating time series
+for that and the idea is that this is
+all very dynamic you can spin up these
+policies in real time to dig into and
+and give you the insights you're looking
+for
+and just to walk you through the the
+viewpoint of pac advisor as it's sort of
+flowing across and i'm going again i'm
+going to use this this dns use case
+analysis but you know from pac advisors
+point of view there's you know there's
+just this stream of dns streaming across
+uh it comes in spikes right there's
+there's there's troughs and there's
+peaks but there's a lot of information
+that's packed into
+the data on the wire that um that is
+useful for us right as operators and so
+again we want to understand what's being
+queried what are the results are they
+failing what are the you know
+percentiles of the timings what's the
+cardinality of the ips we're seeing and
+a lot of interesting information and so
+pac advisor is watching all of these and
+it's pulling out that information that
+that interesting information we care
+about and every minute we get a summary
+of what just happened
+and we're getting those summaries
+regardless of how much traffic is coming
+in or not right so if if no traffic is
+coming in or very little traffic we're
+generating
+the same metric series
+uh but if if we're under attack and
+there's a lot of traffic coming in
+we're also generating
+the same amount of data right so the
+output is not a function of the amount
+of input we're seeing which is a really
+nice architectural property we're not
+putting more pressure on downstream
+systems in terms of the collection and
+the analysis
+uh we're able to operate at that same
+steady pace
+and again all this information that
+we're collecting is available
+locally to the node so we can action on
+it there and we collect it in and get
+that global view as well
+so just a couple of tech notes on the
+agent itself so it's mostly been
+designed to run on linux systems
+uh x86 64 and arm as i mentioned we've
+gotten it working on like even a
+raspberry pi we've started to uh to
+experiment with it running directly
+um on some routers that support it we
+mostly run um docker containers
+ourselves
+uh but you can run statically linked
+binaries like basically we want it to be
+very easy to to deploy right this is the
+type of thing that's supposed to live
+everywhere so it needs to be easy to
+deploy and run everywhere
+and the agents themselves
+connect into the orb control plane over
+mqtt
+over tls and so all of the metrics and
+information telemetry it's sending back
+is encrypted and for those of you who
+are processing flow data um this might
+be an upgrade i think uh it's common to
+shoot flow data over the internet sort
+of open udp
+and if you use this solution you'd be
+sending it locally to our agent and we
+process it at the edge and then we ship
+that back
+over tls
+i mentioned the control plane so it does
+run in kubernetes if you do want to
+self-host and there's other ways to run
+it right these are the microservices
+architecture
+if you're familiar with kubernetes we do
+have a helm chart available to to help
+you do that
+if you don't want to sell post you can
+try this also at our orb.live sas site
+and
+the way we sync data today we're focused
+on a prometheus as a sort of de facto
+standard for a way to push metrics uh
+into a time series database
+but we've decided to um to go with open
+telemetry which is uh which is in
+progress some really great work from a
+lot of different companies that have
+decided on a standard way to represent
+metrics and logs and traces and we're
+building this into our system
+and that's going to allow us to
+to to process the data pipelines and to
+take advantage of supporting a lot of
+different ways to export into
+different observability stacks
+and we're kind of just beginning so um
+you know we've used a lot of this
+technology internally at ns1 for quite
+some time
+uh as i mentioned it's been about a year
+and a half of working on orb and putting
+all these pieces together and so we're
+we're looking for uh use cases and we're
+really really interested in um and how
+everyone's thinking about observability
+and and whether these ideas are
+interesting
+so we're trying to build our community
+we know that there's a lot of different
+ways we could be looking at the data
+looking at different inputs looking at
+different ways to analyze the data
+we've definitely thought about
+using machine learning in these
+pipelines especially at the edge that
+could be very interesting things like
+anomaly detection and being able to use
+that information
+uh at the edge to to action on that on
+that information
+and we might be able to you know i've
+talked about small data but there's
+nothing to say that we couldn't mix that
+with this idea that but sometimes we do
+want the highest granularity of things
+like maybe we can use the orb
+orchestration platform to decide that
+across our fleet we actually want to
+take
+a pcap sample and get that back in
+centrally so that we can process it in
+some way right an orb
+uh aging groups give us the ability to
+address our fleet and do things on them
+and then you know in the future maybe
+there's more interesting ways or ways we
+can make it easier to
+analyze
+domain specific data streams right where
+you can write a little program that's
+going to process it in some way and
+generate the metrics that are very
+interesting to you and these are these
+are ideas right so
+maybe you folks have other ideas as well
+and we're certainly interested in
+talking about that
+so i'm going to wind it up that's um
+that's most of it so if you do have uh
+you know a couple of things that you
+take away from this
+orb is an observability tool it's
+designed for
+distributed edge networks it uses this
+small data concept paired with dynamic
+policy orchestration the idea is to get
+these insights directly at the edge
+collect uh collect the needles directly
+from the haystack and integrate with
+your observability stacks
+again it's it's free and open source
+software so we hope you try it out
+there's a couple of links here we do
+have a community site at getorb.io where
+you can read a bit more about it
+orb.live is this sas site feel free to
+sign up for that it only takes a couple
+of seconds there's no credit card or
+other other color other kind of signup
+very light very lightweight
+way to try it out
+and uh all of our stuff is hosted on
+github so feel free to check that out
+and give us a star if it's something
+you're interested in
+and with that i'll wind it up i hope
+this was an interesting way to end our
+tuesdays
+thank you
+thank you for your presentation
+uh and time again today shannon um we
+are out of time for questions but we
+might be able to sneak one in if one of
+you have
+one okay
+okay well
+thanks very much

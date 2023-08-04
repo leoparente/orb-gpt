@@ -1,0 +1,1060 @@
+Introduction
+hello everyone welcome to the second day of dnsr33
+and my name is young chuak i'm on the program committee and i will be helping to run
+this session so this morning we will have four presentation total uh two and two with a short break in
+between um if you want to participate please use the chat for general discussion
+but if you want to ask questions and want them to be answered by by the speaker please use the q a
+feature in zoom you'll find the q a button at the bottom in in the window zoom at the bottom of the zoom window
+with that i would like to introduce the first speaker uh our first speaker is uh shannon
+bayrick of ns1 and he will talk about uh packadvisor 3 summarizing traffic
+with sketch algorithms for observability and ddos mitigation so shannon if you're already please
+share your screen and
+go ahead yes hello everybody can you hear me yeah okay very good uh hello my name is
+shannon weirich and i work at ns1 and i'm going to talk about our newly released tool called
+pack advisor so jumping in what is pack advisor uh pac advisor is a network visibility
+What is Pack Advisor
+tool this is uh sort of another tool to put in your observability observability tool stack um and its
+whole goal is to summarize traffic in real time directly at the edges and it does that with these things called data sketches
+which i'm going to talk about a little bit and there's two different ways that it presents the summary information so it
+includes a command line interface and this lets you be directly on a node and in a terminal program and
+updating watching the the information in real time and it also exposes an http api and this
+is used for collecting the summary of information to a central location and this is so you can get that global view of all the nodes that you're
+monitoring back into a central database and do graphing with something like
+grafana for example just to give a quick preview of what types of metrics we're talking about
+in terms of summary so it's got layer 3 packet information so a lot of packet counts and rates
+breakdowns by protocols and so forth then it gets into deeper uh packet inspection and so obviously we
+care a lot about dns and so we get into dns counts and rates and breakdowns by protocol and response code
+there but then we start to get into some of the more interesting ways we can summarize with the data sketches
+so for example uh cardinality is is interesting to us and this might be how many source or
+destination ip addresses have we seen in inside of a time window or how many unique dns queue names have we seen
+inside of a time window it can also do things like track dns transactions so watching query and reply
+pairs and and getting timings out of it um and then one of the the main ones also is heavy hitters
+or frequent items and so we care a lot about what are the top 10 ips that we've seen
+in the window what are the top 10 ports cue names and so forth so i'll go into more detail on some of
+these stats a little later in the talk just to give you a quick view of what
+the terminal program likes just to just to throw you in and sort of wet your appetite this is what it looks like uh you can
+see a lot of information kind of crammed into one view there's a lot of information going by in the header that's a lot of counters and so
+forth and then most of the real estate is taken up by these uh these heavy hitters these top 10 lists that i mentioned
+and this is just the on node view this is the terminal view i'll go through also the global view [Music]
+Motivation for Pack Advisor
+so i want to set up a little motivation for where our pack advisor came from so the newest version that's out is v3 there
+was a v1 and that goes all the way back to 2014 and you know when ns1 was still a pretty
+new company and we needed visibility across our uh our global anycast network so we are a managed dns provider we
+provide authoritative dns we have 26 pops around the world in our and our main network that
+that we operate and you know the visibility is good for of course just nominal operations what are our nominal
+traffic patterns what's the seasonality look like and so forth um and debugging is is another useful
+thing if we're bringing up a new node or we have some problem uh with a particular node um and then finally ddos right or really
+just understanding uh malicious traffic right is this traffic spike we're seeing malicious or
+not and and if it is what are the properties of that so so we can mitigate the attack the
+original version is a fork of netsniff ng which is an open source traffic analyzer
+the uh the first version we made was pretty much just bolting on dns functionality to this
+tool and it did provide this this terminal dns top like functionality with some of the information that we talked about
+um it's remains open source you can find it on the ns1 page if you're interested um it was mostly used on node we did set
+it up to do some central collection uh but it did have uh it wasn't the easiest to do basically it wasn't made
+for that um and and trying to collect the information coming out of it was was hard all right so that was one thing
+that we wanted to correct um you know some of the other problems that we had with the original version um one of the gaping holes is that it
+just didn't support ipv6 and tcp so obviously that was something we we needed to correct um
+it uh it didn't track the transactions as we're talking about so it didn't match up create reply pairs and that was we knew we were
+losing some some information and just resource usage in general uh was a bit of a challenge
+Guidelines for Pack Advisor
+so as we thought about rewriting this um there were a couple of guidelines uh that i wanted to adhere to so the
+first is that we want to summarize data this this particular tool is about summarizing it's not about collecting
+uh all packets and so as i say here we were interested in that it's a distilled signal right so not the raw
+stream and we're interested in two views we want to be able to understand real-time information that's directly on these
+nodes and we also want to understand the global view uh which we know is a bit lagged right like it'll take a
+little time to get that information in but we have that global view and so these these two different views of understanding this information were
+important secondly sliding time window with a json interface and this really comes down to
+just having you know a clear way to track the traffic over time and to expose it so that we can automate it
+against against it easily and then finally fix the holes right so obviously ipv6
+and tcp needed to be first class efficiency and getting new metrics in
+was a cool so i'll dive into those a little bit deeper
+so this solution uh was not meant to be for for data warehousing right and so
+intentionally it was not meant to be an audit log of all the packet information that's coming into the network all the time
+there are other solutions for that obviously including we're talking about some at this very conference um but but this is about summarizing and
+so the goal is to summarize with counters and with these data sketches directly on the edge and so distill that
+signal at all the edges and the good thing about this is that it reduces complexity right and so there's
+there's fewer data requirements the data requirements are much lighter weight and and also it's a less complex distributed system
+right so enable to uh in order to pull the information out and uh and get it back into a central
+location get into a database there's just fewer moving parts going on here but that's at the expense of querying
+flexibility of course right where you're not able to ask this just arbitrary questions on the raw data
+the questions you can ask it have to do with the things we're summarizing of course
+one really nice uh thing is that we can get fast dashboards out of this right because the data requirements are so
+quick it's it's it's really nice to pull up like a couple months worth of summary in a few seconds and um
+you know in terms of the actual data rates we're talking about so a single summary that we're exposing an
+adjacent for a single node is something like seven kilobytes of of json uncompressed and so if you imagine
+an edge network that had 100 hosts in it you're only collecting something like one megabyte per minute right so like
+call it a gigabyte a day and that's uncompressed and another really nice property of this system is
+that that that data rate is is not a function of the traffic rates it's a function of the number of hosts
+right so even if you had zero traffic on your network this would be your data rate uh and and on the other hand if you had a giant
+ddos or a bunch of spikes it's also your data rate right so so i think that's a nice property
+so the information is exposed in this sliding time window and the way we do it is to keep an individual minutes and by
+default we keep five minutes of information and each one of these buckets includes all of the summary information
+and the way it works is that we're able to expose two views we're able to expose a merge view so you can get the entire window
+where these buckets merge together and show like a five minute view a five minute summary and you can also pull an individual
+bucket uh from from the api and we use both of these things in the
+command line version when the terminal is following the traffic what you want is as an operator you want to be watching
+you know what is this sliding five-minute time window of samurai of summary real-time information
+um on the other hand when you collect centrally you're interested in a collecting a single full minute at a
+time and so that exposes the most recent full bucket number one here in the graph and uh it pulls that every minute on
+every on every node into that central database and because we're just
+you know using http to expose json it's not opinionated at all on what kind of collector is used
+or what kind of central database is used you can work it into your your observability stack
+so you know the last guiding principle here plug the holes and make it better right so so ipv6 and tcp are now fully
+supported in this version um with the with the original version we had the
+the problem where running every time you ran v1 it would run a new analyzer would run a new sniffer basically right now it
+takes a lot of resources now since we're just running a single daemon per node and it's exposing
+information on http uh it's very efficient you can have operators connect to to the node
+no problem this version is tracking dns transactions now so it's watching for query and reply pairs and it's getting
+information out of it um it can also work on a pcap so it doesn't just have to be live capture it
+can uh it can be fed a pcap if you if you've got a system that's capturing those and you would want to summarize them you could automate that
+and you can get the summary by running it on pcaps and then the sketches we keep talking
+about so we get these new interesting metrics cardinality and quantiles and again i'll get to that soon
+and there's the concept of sample rate too it turns out that you don't have to deeply fully inspect every single packet to
+pull the summary information that we're interested in and so we can save some resources by having a sample rate
+that the rate right now is currently manual but this is something we're thinking about even even making dynamic
+and if it's not doing the sample it'll still continue to update some of the summary information like the pac accounts and the simple counters
+[Music] so under the hood what does it look like so the there are there are two
+Under the hood
+binaries essentially that get built as part of this system and the first is the capture daemon right or the agent
+and this is written in c plus and then there's the terminal side of it and this is
+a simple golang program uh it's using this in curses like library here which is
+which is very good um and its job really is just to spin up that uh that terminal program
+connect to the load to a local or remote dame and get that summary information and expose it to you in this you know top like one second
+updating refresh and then we get to the two main
+libraries that that sort of make packet visor go so pcapp plus plus is the capture library it is an
+abstraction layer over uh packet capture and provides some other nice functionality like tcp
+reassembly um it is uh you know we're focused on the leap
+lib pcap back end uh but it actually does expose other backends so you can you can use it
+with pf ring you can use it with dpdk uh which we haven't experimented with but there's interesting possibilities
+there so that's how we get the packets into the system and then uh it's all about counting and summarizing
+right so apache data sketches is uh is an open source library that's out there um for
+uh that exposes these these data structures um and that's what we use to do the summarizing uh and i'll talk about that
+in the next slide it's got optional max mine support uh that'll give guip and
+asn information into those uh top end tables uh it's a pretty you know small and a
+new code base i tried to keep the dependencies light so really the only library dependency is this pcap plus plus everything else is header only
+so it's super easy to build yourself if you'd like and at ns1 we use a lot of containers we
+use a lot of docker and so this is docker first if you will it's available on docker hub super easy to to pull that and run it
+and try it out if you've already got docker installed so in terms of performance um you know
+not something that's been a big focus in the 3x brand so far but um but
+but uh to talk about memory and cpu real quick so um when there's no load on it it starts
+at something like 13 megs of resident ram on a fully loaded production window you might expect this to go up to something
+like 200 megs of ram and how much memory it uses is a property of how you tune these data sketches uh so that that's actually
+tunable but there's a there's a known limit to that uh in terms of
+um packets it can capture so it's been measured at better than 100 000 qps on a single node in a single
+instance before it starts dropping some information from the buffer um nothing goes wrong with this
+except that the summary starts to become inaccurate and there's several ways we can think about optimizing this as we go forward
+Data Sketches
+so sorry so the data sketches um again rely on apache data sketch library and so what data sketches are
+these are these fast and probabilistic data structures and these are designed for for streaming
+you feed it big data essentially and it summarizes for you in real time and what probabilistic means is that all
+of the results that it's feeding wind up being approximate right so if you need a tool that's giving you exact
+counters sketches are are not the right tool but if you only need a summary if you if
+you're okay with approximations then they're excellent um and the approximations are within defined
+error bounds right so you can actually choose as you spin up your data structures uh how big you might want that error
+percentage and right now pac advisor kind of hard codes a good balance hopefully
+but they do provide to us you know outside of the the counters which come for free we get cardinality we get these heavy hitters these frequent items
+and we get the quantiles and so the data sketches themselves are designed to be merged and that's how we
+support the time window and so when we have those five minute buckets it's got five separate data sketch structures per
+and then it merges them together so we can get that view and this is a built-in functionality to the sketches and an interesting piece of
+functionality we can get out of this is to think about merging exposing this raw binary sketch data and
+merging that across not just you know right now it's merging a single process that we could merge
+across nodes in a day in a data center or even merging across data centers itself
+Command Line UI
+okay i'm going to get into showing off some of the some of the things are summarizing a little more detail so here's the command
+line ui um again it's it's visualizing all the summary stats in the time window the sliding time window on a single node
+in real time right so it's the most up-to-date real-time information and you can run this locally on the node
+or because it's in the end just hitting an http server uh you can also connect remotely to on
+the packet browser daemon if you'd like it's it's efficient for multiple operators to use the same one
+for the same reason uh it's updating once per second right so back to this view i'm sorry about the the
+sample data i didn't have great sample data this is actually just a capture from my local network but it you know exposes most of the
+interesting information here so if you look at the top all of the packet information is
+highlighted uh and so this is like your l3 data basically it's how many packets
+what are the breakdown by by some protocols it does understand ingress and egress
+and at the top right we see deep samples and that's the sampling functionality i talked about where
+it's you can select how many times is it fully deeply inspecting the packet and filling all the data sketches out
+and that can be a lower percentage uh and then we have packet rates and so uh here we see packet rate in 37 per
+second the 37 per second is an instantaneous rate uh and what we see next to it is is um
+percentiles right so this where it gets into the the quantile sketches and um and what we're seeing here is that
+uh in the time window which is shown uh it's actually in the next section down but we see exactly what the time
+window is in this time window the p50 of the packets per second we saw was
+zero on up to the p90 p95 p99 and so we get that information in a very
+quick glance for both ingress and egress and then next to that we have cardinality and so this is
+super useful information so we see that uh what were the it answers the question how many unique
+ips have we seen in this time window for both ingress and egress um and you
+know it's it's kind of hard to see in this view but when you do collect this as a time series you can see it as a graph over
+time you can see seasonality and you can see spikes when when uh you know both non-malicious and
+malicious traffic comes in [Music] and so the section below that gets into
+the dns specific stats and so we see a similar breakdown in terms of how many dns wire packets
+udp tcp so forth now we see query and response counts
+and then uh transactions so it is matching up those queries and responses and it's it's tracking it differently
+from in and out right where in would be we're running a server uh a dns server on our node and
+clients requiring us and out would be um either the operating system is going out and making a call or
+uh you know we're running a recursive resolver on our system that's going out and making a call um and we have timings on both of those
+so now we're using quantiles here for the timing information so what it's
+saying is that the p50 of all the incoming dns queries is 20 milliseconds
+right and so on up to the p99 of 318 milliseconds and again this is all this is all done
+in real time for the time window that we're seeing and finally on the right side we see uh
+another cardinality so this answers the question how many unique queue names have we seen in this time window right and again really interesting
+information if you have this as a time series and you can see the seasonality and you can see when spikes happen
+and we compare that information again to look for attacks i'll go into that for a second in a second below that we just have
+counters for the archos that are coming out and again here's the time window so we're saying that as you know as an operator i'm seeing
+exactly the information that's been summarized from 643 to 647 here and exactly how long the period is
+and then finally at the bottom we see the uh the heavy hitters the top end right so um right now we're
+storing or the api exposes the top ten i think the ui right now is showing the top seven just to fit everything in
+but we have um you know a lot of interesting information that we care about as dns operators
+including dns summary information the queue names at different aggregation levels the the timings the queue types and so
+forth there were no nx's or serve fails in this time period but those would be listed in terms of counters for the top 10 that
+we saw also for refused there's some generic ip information and dns port information and then
+at the bottom we see the max mind information that i mentioned and for the slow in and for the slow out
+it's actually using the um the p90 of the timings that we that it's tracking
+to figure out which q names it saw that were above the p90 and so any that were above that were slower than the p90 show up in
+this top 10 list over here shannon this is the timekeeper there's
+Central Centralized Operations
+five minutes left in this presentation and five minutes of questions following very good thank you okay central
+centralized operations so the way we do centralized operation is to um collect that summary
+information with telegraph which is open source there's a generic telegraph http input plugin that
+once a minute we'll pull a full metric bucket from all of our nodes it uses rabbitmq to get that information
+back to our to our core and uh we're using elasticsearch as our as our main central database and there's
+a again a generic plugin to get that information into the database so it's a really simple setup
+and you can like i say you can work this into whatever observability stack you happen to have
+on your own systems and here's what the global view looks like
+like a lot of people here i think we use grafana to visualize a lot of things and so this is one of the dashboards with
+some sample data in it and so you know you see global packet rates this is a mix of all the nodes
+across all the pops aggregating together uh a couple of these graphs are done such that they're they're symmetrical with
+the ingress and the positive and the egress at the negative um so it makes it easy to see make sure that we're sending and
+receiving data properly um in particular this is graphing the the p95 uh in in the main graph and then the
+dots represent the p99 so we can see spikes that happened uh above and below that
+we see similar for the the packet rates for for pops and for query response pairs here we can see the nice seasonality of
+the pops uh yeah there's a dns protocol breakdown we can see you know what traffic is coming
+in across everything and then um global nx attack view this is where we start to marry some of that
+interesting information and so here we have cardinality of the ips that are querying the system we have cardinality of the queue names
+that are coming into the system and then we have the rates of nx domain responses and so
+probably most of you recognize what we're going for here is that our random label attacks that are so possible so happen so often this helps us spot
+that right we for all those things if it's a distributed attack we will expect ip cardinality to spike
+we will expect q names cardinality to spike and we will expect nx domain responses to spike
+uh just another view of some of the information here's the dns transaction timing so we can see the the incoming
+and the outgoing timings graphed again with some dots showing p99s and p50s and then here's another attack view
+where i just happened to call out where we saw a spike in source ip cardinality but not a spike in q name cardinality
+and that means it wasn't a random label attack in particular this happened to be a tcp syn attack
+Centralized Top End
+[Music] okay centralized top end one thing i didn't show for global was the ability to show these these top end
+tables across the entire network so it turns out that this requires mapreduce job and um that's not supported in
+grafana or cabana unfortunately but it is supported in elasticsearch and so you can find on github
+a uh script that will do this for you it calculates the global top end for the selected nodes um but unable to
+put it in the dashboard we want so uh there's a there's a separate dashboard that's in progress
+on github to to show this for now until grifan and kamana can support it
+okay that's most of the summary so this is an open source project of course we welcome collaborators
+anybody who's interested in trying it out giving us feedback and or helping develop please contact us
+there is some documentation for the api that's exposed uh it's in
+progress but uh it's available in open api format and on swaggerhub here
+Future Plans
+and just quickly on some of the future plans and ideas um so so a control plane is is one idea
+so being able to not just pull summary information from the api but be able to write to it and
+set up dynamic policies and talk about exactly what we'd like to summarize in any particular time is is one idea
+allowing other types of streams and so um it doesn't have to be a packet capture necessarily we could be summarizing things from message queue or
+a pipe so we could consider that an abstraction uh and also same with other protocols so so dns obviously we're very interested
+in but there are other protocols that it might make sense to uh to have as modules that can that can summarize things
+and maybe new you know new new ways to probe so ebpf probes that are looking for application information is an idea
+that's come up to explore and of course optimization is is always interesting and
+being able to target a single node to support up to hundreds of thousands with with the dynamic sampling rate is uh is
+on the backlog and that's uh about all i have so thank you very much i hope this was interesting and i'd
+be happy to answer any questions if they're happening thank you shannon uh that was nice
+presentation and at this moment we have three questions in so i will read them to you uh so the first
+question is by matthew poundset is the command line ui screenshot you shared single host information or is
+that summary data so it is a single host but it's summarizing
+it's it's summarizing the time window uh but it is a single host yeah so the command line interface will always be a
+single host it could be local it could be remote and it's summarizing the time window as it shows here for example 643 to 647.
+but single host okay thank you the next question is by rob weber
+cool tool thanks a lot uh would it make sense to split domains based on the public suffix slates
+rather than just number of labels uh it absolutely could that's that's one
+of the nice possibilities about pac advisors it could make sense to do a lot of different types of summaries right and this is where you get into that
+that line between having you know collecting all the packets and being able to ask any questions later versus what we're summering is like you
+have to pick things in the end that you want to summarize what i'd like for it to be is a way to summarize a lot of
+different uh a lot of different things in pac advisor but have the ability to choose what you're summarizing right
+like you don't need a summary of all the options or not every use case means you need all the options and so what i'd like to see is we
+support a lot of different ways to summarize different protocols and to different depths of things and then have a control
+plane that can control what we're summarizing dynamically okay thank you and
+the last question is by tamash kriejek is it possible to monitor dns or tls or
+dns over http queries as well and it wants to support it tl sessions keys could be locked temporarily
+and the traffic decrypted yes so we're absolutely interested in that kind of
+support it doesn't do that at the moment um so i'm interested in working with
+folks on on the best way to do that right like one way to do it would be to put pac advisor between some kind of
+termination and where it's sending to so behind a proxy that's the only way it could work right now it doesn't understand the keys
+it cannot encrypt but if there was native support for that i think that could be super interesting
+okay and as you were answering we received the question from chung toad following on
+the last question what would be lost if the collection model was converted to dns set
+what would be lost if the collection model was converted to dns stat i fortunately don't know the answer that
+because i'm not as familiar with dns dat okay so hopefully we'll be able to
+follow offline and yet another question by ray bellis uh where's the bottleneck
+in the capture process uh is it done similar captures at oh i have done similar captures at 4.5
+times your code rate yeah it it's it has to do with the deep
+inspection i think how how deeply are we inspecting all of the packets and how many different
+for example sketch algorithms are we putting them into because remember we're doing a lot of processing with these sketch algorithms in the end
+and they're built to be fast they're built to work with streaming um but they they do take cpu right so i
+think it's it's a matter of how deeply you're analyzing that's why i think it's also important to provide some kind of control to
+select um the type of analysis we're interested in so we can balance that
+okay thank you um that's all the questions we got uh thank you shannon again for your
+presentation and with that uh we'll move
+to the next speaker the next speaker is robert jeffer and uh the title of this presentation is
+neural networks and challenges in detection of malicious dns traffic and bga malware so robert if you are ready to
+share your slides yes uh sharing it right now okay can you
+see it yeah yeah i can see it i can hear you so the stage or virtual stage is yours thank you thank you okay i would like to
+i would like to to dive into what we are doing on on our dns resolvers
+uh in regards of detection malicious traffic or infected hosts so
+the presentation is about the machine learning we are doing to detect domain generation
+algorithm or algorithms different ones to to detect
+sequences of of malware generated uh domains among a regular traffic uh
+there are multiple challenges uh of course we see uh most of the traffic is actually a
+benign one the the valid one and in some parts some some domains are uh generated by the infected hosts
+uh by the domain generation algorithms we don't really know if behind a single
+ip that's uh communicating with our resolver if there is a single device or if it's a if it's
+a house or if it's a whole large network so this is also one of the challenges it could be a
+whole a lot of traffic from from a single ip or or a few queries during the day
+and uh our ultimate goal at the at the end is uh to detect and to point towards the
+infected clients and to tell okay there is an infected client behind this ip
+uh even without actually knowing uh what botnet is uh is running there
+uh without the prior knowledge of those specific domains so the first step to to
+do this uh for us was to try the the per domain dga detection to
+actually decide is this particular domain uh
+dga or not uh of course this is it's a bit tricky uh
+so what we what we tried uh we we asked a university uh to hop on board
+for this for this research uh it uh was led by by the gentleman catania
+sebastian garcia and pablo torres there are from technical university in bragg and
+universidad mendoza from argentina and what they brought
+inside as a data set uh with our help uh was over one million of clean domains
+and almost two millions of dga domains from 51 malware different malware families you
+can you can see the list of the of the malware families on the right there is a whole paper available uh
+available on the url on the on the bottom of this slide uh i i'm not authorized to redistribute
+the paper uh but it's it's available there and i encourage you to to read it uh
+it's quite interesting i will just point out a few uh things out of that paper the neural network
+that is actually is actually deciding whether the domain
+is dja or not starts with the embedding layer
+which creates a whole lot of vectors uh out of every single domain so it
+vectorizes the input to have uh i think 256 uh vectors for any domain you throw at it
+then there is a a single dimension convolutional layer uh that extract the features
+out of these vectors and at the end there is a multi-layer perceptron network
+that's doing the final uh the final decision is this a dga domain
+or not so the basically the the whole output is a probability and the result through false dga
+or or normal so that's uh that's quite nice and this is this is
+how it how it works on the uh on the data set uh with the true positive rate
+uh about 97 percent and fault false positive rate about 0.7 percent
+which is still quite large if you if you imagine the dns traffic
+uh the false positive rate at this level it's not really uh not really good not
+really the only thing you would like to rely on uh so we have we have improved uh the
+neural network over the time a bit on top what was the result of this particular research
+but uh at the end it's as i mentioned it's really tricky to to do the decision on
+on a single domain i'll explain right away uh why
+doing the decision just based on the domains led to to a real false positives so
+we have decided we need something on top of those of those labels on the
+individual individual domains that will that would evaluate the behavior of the of the individual hosts and ip
+addresses communicating with the resolver uh i have i have a few examples
+here of the of some of the domains that are actually valid uh domains i've
+picked the domains from from czech republic uh from czech domain and i really like them the the domains
+here in marketing red they are valid domains of schools of public institutions uh
+that are of course they have been uh they have been marked as dga by the
+neural network because i mean even even me i would i would put them in the
+in the dji bucket if i uh if i uh see them for the for the first time so uh our idea
+was okay let's not rely on just the the neural network that's uh
+labeling the domains but we need something on on top of that and we have labeled manually sequences
+uh sequences for of the uh of the traffic for uh
+240 dga sequences over several days and then
+clean dns traffic almost 250 uh samples of different clients
+different volumes uh to have uh to have different sequences of dns traffic and to be able
+to feed those uh to a machine learning algorithm
+that would be able to decide okay this ip address is infected or not uh this is one of the
+uh one of the point of views that we got from the from the data set the cluster
+on the right uh the dga cluster on the right are the data sets where there are actually really many
+queries from the infected hosts so they are easily distinguishable
+from the rest so it's a it's a it's a flat of the of dj queries and uh it's easy to
+distinguish them but uh the cluster on the left uh based on the volume uh
+this is much more tricky uh the the dgas here are generating just a
+few uh domains per hour or uh or per day and it's base is basically
+overlapping with the with the regular traffic our experience is that 0.01
+of the traffic is labeled as a dga so it's it's not it's not a huge it's
+not a huge amount and uh this is the most tricky part to distinguish the
+the clean from the from the dj this is uh these are the results from from our
+um sequence uh sequence analysis uh that's working with the dj label uh
+on on long term traffic on on at least several hours uh or maybe uh
+several days and actually we got really good uh really good results based on that
+more than 99 uh precision uh based on the
+on the time sequences so we are really confident about pointing towards the uh the infected ip
+addresses there uh how does it look like in the in the real world uh
+Examples
+i have a i have a few examples here this is one of my favorites actually
+this is a really aggressive in terms of number of uh
+number of queries monero miner which is sending queries towards
+these domains uh the author of the malware is using these domains or one of these
+one of these domains uh from time to time to update
+the malware and the top-level domains are uh it's a combination of hosting or
+black friday tickets and feedback and we actually see this malware active for uh
+for like two years and uh in in many many networks there are still a
+huge number of infected infected clients you can see that
+during one hour such an infected client is able to see sent about 30
+000 queries uh even more uh we have seen we have seen occasions where it was like
+almost 100 thousands uh there are much much more famous like
+botnets like neckers botnet they are a bit more cautious uh as you
+can as you can see here every column uh is one hour uh on the timeline uh
+neckers uses a large set of different tlds and here um we are able to see that per
+hour uh the the traffic uh includes like 300 uh 300 different dga
+queries and there are also uh some other botnets much more cautious uh
+this one is unknown uh our disadvantage is that we cannot really decide whether uh whether it's a uh what type of botnet
+this is if we don't know actually if we don't have the binary if we don't if we cannot link it to a
+particular algorithm we just can tell okay this is a dga it's an infected host
+but we are not sure about the particular botnet so this is for us it's an unknown botnet but still
+we can tell this is an infected machine here
+Summary
+so as a summary we are very happy with the with the dji
+detection based on the two layers first the the domain based uh
+labeling and then uh taking the the whole sequences of the uh of the
+traffic and and running them against uh the clean and and uh infected traffic uh it gives
+very precise uh output uh our challenge uh what we would like to
+solve in the future is to do the real-time prevention so uh directly on the resolver
+to be able to mark the infected clients and for them to block and to prevent
+only the dga traffic but keep them online keep them online without preventing them
+the regular dns resolution it's quite challenging performance wise uh
+but it's something that we would like to manage and we are looking into into this deeper
+thank you thank you for your attention if there are any questions i'm here to
+QA
+answer them thank you robert uh we didn't get any questions yet into zoom
+but i will have one question uh so this is not really dina's questions but
+i'm uh interested in if you uh if you managed to identify some botnet
+um and you were i am well can you can you like reverse the algorithm that is
+generating these dj algorithms uh can you then like uh prevent all queries generated by
+uh this mother or do you still have to rely on uh solution like this uh
+that just like estimates whether whether the query is dj or not right well we cannot we cannot revise
+that without the without the actual binary so we can just uh we can just guest
+guess most of the queries uh that are that are dj but it's not it's not usable to reverse
+the algorithm behind it okay thank you um eli hussain uh asked
+would it be good to use hois records in real time to predict dja domains
+um not sure not sure about uh about the answer to this i mean most of
+the domains actually don't exist at the time of the of the queries
+so so the who is uh is a bit tricky so you can you can do it for the existing ones
+[Music] but not for the prediction uh i mean
+i'm not sure how how this would help with the uh with the labeling
+okay thank you uh we have two more questions uh some channel is asking do you take into
+account the response code for example index domain responses for the traffic analysis
+botnet polling is often associated with high nx domain accounts right i agree uh it is but
+we decided not to take this into account uh for the for the purposes of botnets that
+have a low volume of domains and all are actually all are actually
+existing so we have seen some uh one of one of the one of the botnets i
+remember is a the infected c cleaner which is like four years ago maybe
+uh they actually cycled only one or two domains per week and
+the attacker has already bought all of them so all of the domains were existing
+and this is one of the examples where this would be uh would be a bad idea to to take into
+account the response okay thank you and the last question we got was a
+duplicate of the first one so we have to one more minute so if
+anyone wants to ask questions you still have a bit of time
+and if not i will just hand this over to keith because he will have some short announcements and
+thank you again robert for your presentation thank you
+yes thank you um jan and jake for um running this morning exam session and thank you to shannon and robert for
+your your talks um have a few announcements um first of all i'd just like to thank
+ns1 as our sponsor of this event um today and yesterday um they're doing a survey still where
+you can um potentially be awarded um something some swag um also to acknowledge verizon as our
+patreon for all our workshops during 2020. um a reminder that we very much appreciate getting
+feedback both on the talks and the event um so you'll see the on the survey links in the
+rolling slides would appreciate feedback on that and also if you're not member and you have not
+registered for the orc agm then there's still time to do so um again
+they um you should have received a link for that um and um just to be clear that the orc atm
+voting tokens will not be sent out until midnight utc tonight that's slightly different from previous announcements on
+that um we're now going to break for 15 minutes and we will resume at um
+1500 utc in 15 minutes
+okay thank you so hello and welcome back
+so we have two talks remaining and without any further delays i will
+hand over to brian summers who will talk about dna script securing traffic from the stop to the resolver
+so brian if you're ready thank you i'll just share my screen here
+hopefully you can see that we cannot
+[Music]
+oh let me try that again
+still i think oh something's coming up yes we can see a screen
+okay apparently uh helps when you click share okay um my name is brian summers
+um i work at open dns or umbrella which is a part of cisco and i'm going to talk today about dns
+script and securing the dns traffic from the stub to the resolver
+um i'm going to cover a number of topics starting with the landscape what the dns
+landscape looks like at the moment and where the different security zones are and
+what's missing in terms of security from for dns end to end i'll then
+look into how dns crypt actually works um and what it looks like in the wild and
+then i'll summarize what we've talked about
+The Landscape
+so the landscape um well back in the day i think uh many of us uh started connecting to
+the internet over 2400 board modem um we had an environment whereby
+we either connected to the internet from the office or from home um our resolver was on our isp or maybe
+if we're a little bit more tactically minded it was in our home or in our office
+and the resolver would talk to name servers and the main servers are out in the wild
+[Music] the wild got wilder as the internet grew and dnsec was invented and dns was
+invented really to secure that that data between the resolver and the name servers it takes the
+name server data and authenticates it and makes sure that it's uh it's actually the stuff distributed by
+the zone owners but of course moving towards the modern world um
+really everything's in the cloud all of the clients are in the cloud the resolvers in the cloud clients move
+around the place and the only thing that's really secured in dns these days
+is the path between the resolver and the name servers it's secured in terms of being
+authenticated it's not encrypted and it doesn't need to be encrypted because there's very little
+data leakage from the resolver to the name servers with regard to what the uh or who the clients actually are
+Remote Resolvers
+so what's good about uh having a remote resolver rather than running it all locally on your your machine well um remote resolvers
+give you excuse me remote resolvers give us good caching and because there's lots and lots of
+clients talking to that one resolver the data that you're looking up in the uh against the resolver is likely to
+already be there and high possibility of uh of cachets
+and you've got privacy and the authorities learn very little about delegated lookups they don't really know
+who's querying the uh [Music] the specific name um and with q a
+minimization they don't even know what the specific name is they just know the next zone down from themselves
+and generally with enterprise level resolvers you get low latency most of them run on any cast addresses
+so if they've got a reasonably uh good data center spread then you're likely to get
+uh and get to talk to a local resolver and have low latency high availability of course um most of
+these big dns companies will have massive redundancy and they're able to deal with
+um most denial of service attacks that uh that hit them and of course security enhancements and
+dns sec validation is just about everywhere now um unfortunately not all zones are dns
+signed but eventually that will come but also a lot of these resolver
+services will protect you against things like malware and phishing and also doing content protection and that
+sort of stuff so the missing piece um well the bit
+Missing Piece
+between the and the stub or the client and the resolver is not secured it's not really secured
+in any way and so if your resolver is not local then your traffic is going out in the
+internet it's um visible by everybody to everybody
+there's no authentication the dns sec adbit can't be trusted well we can't really trust the data at
+all because it can be attacked and most of the queries go out these days with uh
+4k um buff sizes although that's being addressed early next month in the next couple of
+days in fact and by reducing that buff size down to something more reasonable that will
+avoid fragmentation um but there's really no privacy and everything's in plain sight
+and you really don't know who's watching
+DNS Crypt
+so dns crypt to the rescue and dns crypt is the piece that is
+is there to plug that gap and dns crypt is something that lives locally so it
+might be a local network service and some server in your local network that
+takes your plain text dns traffic and encrypts it before saying that sending it out in the
+big bad internet it might be a local process on your machine so laptops may have local processors
+that are doing this uh dns script or it might even be built into the stub library i don't
+know of any implementations that do that yet but that will be a nice thing in the future um dns crypt supports udp and tcp and so
+it's very dns like it's it doesn't try to do dns over tcp or anything weird like that
+and it allows a 4k udp buff size um which is a really good thing
+if somebody does attack second and subsequent fragments well they're just going to spoil the response they're not going to be able to
+corrupt or poison the response dnscript uses
+et25519 and which is relatively fast encryption it's the
+fastest encryption option that we've got these days um it does mean that the cpu cost
+is probably between two and three times um what it is at the moment um but
+well that's that's the uh the price we paid and uh dns script has had no known
+protocol vulnerabilities it was invented in 2008 and nothing has ever been reported
+against it so i'll go into um describing exactly
+what dns script is and so dns crypts kind of has three different players
+um there's the provider the provider is the uh the the entity that owns the resolvers
+and there might be multiple resolvers um and then there's the resolver itself
+and there's the client and each of these entities has its own key pair so we're using public key encryption
+in each of these places the provider key is used for signing and the other two keys are
+used for encryption the client and the resolver so the client and well the provider creates a provider
+public key he stores one half of it um privately and he distributes the um the public
+side to the client and that client side will be used for authentication
+Moving Pieces
+so what are the moving pieces um how does this all kind of uh play out in the real world and so it
+starts with um a very infrequent operation which is the provider creating itself a provider key so that might be done
+once every 10 15 years um the provider will create this key pair
+it will take its private key put it in the safe somewhere and not let anybody access it and then it will take the
+public side of the key and it will publicize it to as many clients as possible stick it in its website etc
+then once every few months or maybe at most a year and the provider will generate a new
+resolver key pair so the resolver key pair will be used for encryption of resolver queries um
+so the pro the resolver will install the private parts on the resolver itself and it will take the public part and it
+will insert it into a thing called a dns grid certificate so dns certificate has lots of
+interesting data in it but the most interesting thing is the resolver public key and that resolve a
+public key is signed by the provider's private key the one that he's stuck in safe somewhere and doesn't let anybody have access to so
+he'll sign that public key and then um distribute the public key for the um
+or the dns certificate with the public key as part of dns so it will be published as a dns text rr
+so then from the client's perspective the client wants to talk to the resolver so every hour and this is based on the
+um the dns certificate text are our sets ttl so every hour the client will
+refresh that um that rr set and we'll choose out of the rr set its favorite key
+so it's favorite key will usually be the uh the key with the highest version number
+um well certainly the one that's uh and that's got valid dates but
+the one with validates and the highest version number and it will keep that in its back pocket
+ready for encrypting things and it's most or it's only interested in the provider publicly
+sorry the resolver publicly at this point so then periodically um once per session
+but more often than not months for query the client will generate a client keeper
+so what the client then does as it talks dns script to the resolver it will encrypt every query that it
+wants to send using the resolver public key it will add the client public key to that that query and
+it will send it off to the resolver the resolver will then decrypt it using its private key of course
+and we'll go and find what the answer is to that that query and then it will take the
+response and we'll encrypt it using the client's public key and send it back to the client the
+client of course owns the client private key and is able to decrypt that
+so we have a situation where the um resolver is the only thing able to decrypt the query and the client to see
+anything able to decrypt the response and all of the gory detail can be found on the dns crypto info
+um website so what does this look like in real life
+so um as i said at the start i work for open dns back in the day in 2011 when we deployed
+all of this stuff we were just open dns and we started encouraging all of our clients to
+run dns script as a way of securing that that last mile of dns traffic
+[Music] so in the last nine years we've been pushing hard at this
+and we've given all sorts of solutions to clients with respect to running uh
+dns script services in their network or on their local machines and this is what our landscape currently
+looks like and this is a cross section of our dns servers so in the graph here you can see the graph goes
+across one week and the light blue at the bottom is our unencrypted queries the dark blue in the middle is our
+encrypted queries and then the yellow at the top is the authoritative data that's being sent upstream which is
+all of course unencrypted um the people with good eyesight will be able to see there are a few other
+interesting things on this graph um talking about a process called dnat
+and that's um where our resolvers talk to each other when they're having
+difficulty resolving resolving queries and that dna service also uses deep dns
+script so dns script what does it give us
+so in our environment we basically see that dns clip gives us privacy and captured traffic can't be
+interpreted and the traffic between the client and the resolver is all encrypted and if it is captured
+by anybody they can't interpret it unless they have the resolve a private key and upstream traffic that goes from the
+resolver to the name servers is
+um certainly visible but is not necessarily something that you can do with because
+and there's no evidence in the packet as to what the um who the client is that we're asking for it
+dns script gives us authentication um the adbit can be trusted so when we receive a dns set response
+from a resolver the id of adbit says if the data is
+authenticated with independent data and that can be trusted and people can
+act accordingly with respect to dns policies etc and the most important thing is it gives
+us administrative sanity so there's no increased packet counts and it's
+pretty much the same sort of dns protocol there there are udp queries being sent out they all have
+4k buffer sizes rather than short buffer sizes to avoid fragmentation but other than that
+um if the response is too big then it's uh it's required over tcp as you'd expect
+with normal dns um all of the um dns traffic or the dns crypt dns
+traffic um usually goes over port 443 but certainly in our environment it can go
+over port 5053 as well um and one of the other nice things
+about dns script is the traffic is identifiable each of the queries and the responses have a magic
+um first eight bytes in them so you can actually uh identify this traffic um even if it is
+on port 443 and act accordingly in terms of generating graphs and
+statistics so next steps um
+yeah there's a site dns script.info i'd encourage everybody to have a look at
+that um there's an implementations page some of those implementations also
+support do and dot and and i'd encourage people to do comparisons and dns crypt has a lot to
+to offer as opposed to joe and dot which are producing a lot of waves in the
+community at the moment and there are a number of public services available not just the open dns resolvers and tons of
+different resolver implementations support dns script and most if not all of them are listed
+here and there's a faq there as well and that's definitely worth having a look at and what are the
+next steps well really i would like to work on getting a dns script rfc
+together it's one of the only things that dns crypt has never actually managed over the last
+what 12 years that it's been in existence so a little early but um that's pretty
+much all i've got so i'm open for questions thank you brian um so we have received a
+couple questions and i hope we'll get some more but paul
+hoffman is asking why do you feel that dns or tls is something weird like that
+um sorry the dns server tls is something weird like that uh i think he
+refers to the part about dna script using udp
+and tcp um and you mentioned that in a script is
+not using something weird like that oh um yeah so um i personally find it
+um a bit strange to take something like dns which is one of the protocols that lives at the bottom layer of the
+protocol stack and yank it out of there and place it over tcp which is a much higher
+layer and certainly dns talks over udp and tcp as as we currently see it
+and but putting everything over tcp with a another protocol there in between seems like the wrong way to go
+okay thank you i hope it answers paul's question uh brett carr is asking obvious question
+but do you think venus script is losing its relevancy with the emergence of doh and dod do you think it should or can coexist
+with the new kids on the block um i would
+i would like to think that it is a competitor and i think that the browser owners that
+have created things like dough are pushing it way harder than dns script has ever been pushed
+and dns crypt has kind of lived in the landscape for the last 12 years but
+hasn't really gone anywhere my understanding is that there were politics around it
+originally and i don't have a great deal of understanding and most of it's hearsay um
+but i'd like to kind of turn that around and at least make it a viable candidate to be honest i would like to see um
+doe and dot lose to dns crypt which is one of the reasons why i'm
+talking here today and just on the basis that i
+do feel that it it makes the job of a network operator very difficult
+and it also completely circumvents the ability to do any dns level
+security operations okay thank you on that note i will
+actually ask a question because you mentioned in your talk that you think that encryption between
+resolver and alternative is not needed and dod definitely has or there are at least
+some efforts to encrypt between uh resolver and authoritative
+so do you think dns script as this would be applicable to that or would it require huge changes
+um yeah so so i guess the the issue about the way
+dns script works is that the client really needs to know upfront what the provider key is otherwise it can't
+trust the resolver key which is signed by the provider and so in in the scenario between the
+resolver and the name server dns script isn't terribly appropriate there is another protocol
+called dns curve which is way more appropriate where the name of the name server is the key
+and that is used for encryption and again
+that's another ec25519 algorithm and we did support that and there seems to
+be very lit very few name servers um in the wild that actually support it
+and bjb who originally invented the algorithm seems to not support it anymore so
+we've since disabled the dns curve in our environment i think as a general
+rule communications between the resolver and the name servers and you could argue don't
+need um encryption um sorry i'll just stop my timer there and
+they don't need encryption because um as a general rule the the name server doesn't know who the client is that's
+querying and with q name minimization all the name server gets to see is the next level down from a recursive
+resolver and so if i'm the com name server all i'll see is a query for opendns.com
+and so i know that that resolver is interested in opendns.com i have no visibility into
+where the client is going or specifically the client is going or who the client is and so
+it's very um use useless information and that's received the name server
+encryption of course is is always better than no encryption so i i don't disagree with the dns curve
+approach if people want to hide that traffic okay thank you uh why who sign what is the
+adoption statistics of dns script how many resolvers are using this what about performance in the case as
+compared to dlt and doh there's actually a whole ton of
+resolvers so you can see in this page under many services there's a url that lists all of the
+public servers that that do this is personally at home i use some software
+called dns script proxy and dns grip proxy comes with a configuration file stuffed full of all
+these public servers and you can literally go through them and decide which one you and you want to use
+and in terms of numbers there's there's tens of servers there and
+so yeah i'd encourage people to have a look at the the list
+okay um did you answer the part about performance comparison videot on doh or do you want
+to answer that um yeah sure uh sorry i didn't hear that piece um
+yeah that's the uh and one of the the downsides of using encryption and it
+costs um even ec25519 which dns encrypt uses um it costs i would estimate between two
+and three times the amount of cpu to process a query so that's the query and response traffic
+encryption and decryption okay thank you joe able is asking or commenting
+there's an upswell of activity implementing doh on application endpoints in some cases with
+extensive support in developer frameworks i haven't noticed as much interest in dnascript what benefits does dnscrip
+provide in the world where doh is becoming prevalent you mentioned that advantages exist but
+not what they are well i guess i mean again looking at the
+dns crypto info site there are a bunch of pros and cons for each of the uh the protocols and it includes doh and
+drt i think one of the main things that's uh that
+kind of attracts me to dns script is that it's it doesn't um spoil the administrative
+landscape in that we still have um a client talking to
+a resolver and a resolver talking to a set of name servers so dns crypt just um owns that client to resolve our
+data path and you can still see udp traffic and tcp traffic you can identify that as
+being dns traffic and you can block it and do any administrative things that you want to
+do with it the thing i dislike about the the other approaches and where we
+we send everything over tcp from the client is that it's very difficult to police
+that client and the client can connect to anything it can do its queries over anything and really you know in in my kind of
+view of the world where a resolver gets an opportunity to provide security to
+the client well that's all gone the the the end user or the
+sorry the zone operator is the thing that's actually managing security the tcp
+kind of approaches things like adaptive dns is even exploring the ability for
+zone operators to publish things like https q type records that tell the client
+which dot or doe service to use as a resolver
+which is appalling because that completely circumvents any ability to do any security at the network level um but again we're
+kind of moving into opinion rather than anything else i think i think that the the most thing i think i most like about
+dns crypt is the fact that it's just owning that that's hole in terms of security rather than trying to replace
+the protocol okay thank you another question
+is from red car why do you think there has never been any rfcs published for dnscript
+well i mean there's there's lots of congester conjecture around that um my understanding is that back in the
+day in around 2010 david olivich who owned open dns and had arguments with various
+members of dnso arc and and decided to kind of step
+back from the whole open source community thing and i'm not really sure how much
+dns crypt was open dns only at the time but it seemed to me that that he kind of
+basically threw his toys out of the pram and and wouldn't play with anybody and ever
+since then no d no rc has been has been written and this is conjecture this is entirely
+my own opinion though so um please don't uh um don't take that with a pinch of salt
+basically okay thank you uh we have i think
+three more questions and some more are coming so i will just close the mic line because uh we are running out of time
+but the next question is by uh paul musheen muchin sorry maybe i'm mispronouncing it uh any
+vulnerabilities discovered in data script so far for example an attempt to decipher the
+encrypted queries using crypto analysis or side channel attacks um so i did
+there is a paragraph on wikipedia that claims that there have been no known vulnerabilities in dns
+corrupt since its inception in 2008 um i haven't heard of any um i don't
+know of any side channel attacks um apart from actually doing some sort of social attack to try to obtain the uh
+the keys that are necessary and maybe getting the getting your hands in the private
+provider private key and and generating certificates to use up the existing ones
+um or getting into a resolver and stealing its private key and the protocol itself
+i don't believe well i don't know of any attacks that have been made against it okay thank you uh samuel wheeler is
+asking how does a resolver know that they should expect the resolver to speak dns script or how do you prevent downgrade
+attacks um the resolver and code path inside the
+resolver is is remarkably simple to uh to process so this the first eight bytes of a dns
+quick query and the first eight bytes of the dns script response will have some magic in them
+so the queries always start with q and then seven other characters and that's um that kind of magic string
+is based on the dns script um or on the resolver public key well actually on the dns crit
+certificate and so generally the resolver will be configured to know about
+specific query magics that it understands and then it takes the packet and it
+attempts to decrypt it and if it manages to decrypt it it's good and if it doesn't manage to decrypt it then it has a look and
+tries to interpret it as a regular dns packet um and it's as simple as that and the
+client of course will then use the response magic to know that it's dns script and should be
+behaving in a way that says well i sent a query encrypted it must be
+encrypted in the response okay thank you uh brian wickinson uh
+the data is encrypted directly with the public key of the resolver there is no perfect forward secret say unlike the
+dox protocols this means future loss of the private key exposes all past capture traffic
+any comment on this risk um yeah it's something that's worried me
+in the past and and i've developed some uh some utilities to kind of help in the process
+around that um i think as a general rule when encryption is involved
+there is a problem with losing your keys or or compromising your keys in some way
+and there is no date per se on the private key or the
+provider key and so it's similar in a way to um
+dns dns sec i guess in that if you generate some ksk and then
+divulge that information to somebody else they can own your domain and you're only well i guess in the
+dnsec world you can then contact your your registrar and
+use real words to actually reuse regain control of that domain um
+i don't have any great answer for this in the the dns script world and if people continue to trust that old
+provider key and the provider key becomes compromised there's no clean way of
+kind of revoking that provider public key
+okay thank you and as we are over the time i will allow one more question which is
+by eric z gast in countries countries where government monitoring is common or
+required do find that white era dns crypt traffic is routinely blocked
+um the only experience i've i've seen of dns crypts being blocked
+is um i believe um areas in china probably all of china
+and that will and block um certain ports or try to use up um
+queries to certain ip numbers and our marketing people have um have played
+with that in terms of us listening on different ports so that they can kind of squeeze information by that that won't be seen by the uh
+and the country in question um yeah i mean dns curve can talk on on
+whatever port you want to configure it to talk on and really that's that's your your recourse um yeah um
+i don't really have a better answer than that it's fine thank you thank you a lot uh
+thank you for your presentation and also for answering our questions so extensively
+and with that we will go to the next presentation which is a
+presentation titled a new traffic capture and visualization tool for imrs by jim hake
+so jim if you're ready nice yes thanks uh yeah awesome
+all right can you hear this can you see the slides oh it's good i can see the slice and i can hear you excellent
+well let's get going one last one last talk for the day i'm going to be talking on a new traffic
+capture and visualization tool for nrs my name is jim hague i'm one of the team at cinema
+so without any further ado let's get underway um let's quick overview of what i'm
+going to be talking about today first of all we better get the question of what is imrs out of the way imrs
+is the icann managed root server for those in the dns world this is the
+root server you will formally know as elrod we're capturing traffic
+on for iron imrs and writing it to cdns files
+cdns being a cbore based dns specific file format for traffic capture which pairs queries and responses and
+indexes uh common data we're using this because it generates much smaller files
+than pcapp but with most of the same information and finally we're visualizing the data
+by importing it into the click house online analytic database and displaying in grafana
+and at this point i'll just note that aggregation of data is an important factor here and we'll be
+talking more about that later on a bit of background
+on the project um senator and we here at synodon contract for the icann dns
+engineering team the team responsible for managing imrs traffic capture is all done by open
+source code developed through dns stats and historically this function has been performed by using a combination of
+dsc so dscxml files some pcap and a previous synod and
+solution hedgehog however imrs has now migrated to
+an end-to-end system cdns to click house to grafana uh i presented cdns
+back in dear oh dear pre-covered days at oarc29
+the only major update we have on the state of the cdns since that presentation
+is the cdns rfc rfc 8618 was published month or two after uh
+oauth 29 as in september 2019. today's talk i'm going to focus
+more on the full solution if you want to know more specifically about cdns i suggest you go and look at
+look up the talk from our 29 so a brief overview
+of imrs because cgns was designed specifically to target the use case for imrs
+imrs is roughly 280 hosted servers in
+we i'm describing it here as challenging environments um the servers are grouped into roughly
+170 we call them instances in different locations
+and they are icann servers but installed into a donor data center
+and at the time at present the total traffic uh captured through imrs is in the order
+of 17 billion queries every day now a bit more about why i
+describe the environment as challenging well the big thing here is that all data collection
+is happening on the same hardware as the name server that hardware is typically a one
+ru server the job of that server obviously is primarily to run the name server so it's important
+that data collection which is a secondary activity
+there is it's important there is a minimal resource conflict
+further the collected data is stored on the same hardware again as the name
+server and periodically upload it to what's icon servers and that upload
+is also constrained to use the same network interface as is being used to
+serve the dns traffic so therefore it's important that
+as well as resources on the server that the size of the uploads is kept to the minimum practical
+and if we have a quick overview quick look at what cdns does for your file sizes
+i'm presenting here tables of file sizes against pcap um
+now you will notice that obviously there is a huge difference in size between raw uncompressed cv and sn raw and
+compressed pcap um however importantly um of course
+everybody uses general purpose compression to compress pcap and cdns maintains a size advantage
+a notable size advantage um even when compressed quite strongly with
+the example here is xz um the important points here are first of
+all that cdns after compression is still only 30 40
+of the size of the equivalent p cap and just as important the amount of cpu
+required to do that compression is a lot smaller than required to compress pcap because
+cdns has already aggregated and commoned up a lot of the
+data that you're compressing the compressor has less to do
+implementation status for cdns if you go to the dns stats github you'll find a
+project compactor and compact has two components the autonomously named compactor program
+which is responsible for capturing and compressing traffic to cdms format and it will also
+perform a general purpose compression as well uh traffic capture is either
+off the network or it can convert pcap files and its counterpart inspector reads cdns
+files um and can produce two types of output the primary type i'm going to talk about today is
+templated text output which we use to generate files for imports to a database you supply a text
+template with field values in it and the contents of that text template
+are produced for every single cdns record cdns record is a
+query and response pair inspector can also perform a pcap
+reconstruction which is important in this context because
+octo requires us to supply them with keycap files i've described this as lossy
+in this particular case it's lossy in the same at the transport level we so for example we do
+not precisely recreate tcp sessions we will create a tcp
+session when regenerating the pcap but it won't necessarily match the original key conversation um and just for the
+sake of full disclosure currently the version of compact running on imrs is a pre 1.0
+release that supports a pre-roc draft cdns format uh however it's been
+some months now since we released version 1.0 of compactor which writes
+the rfc format and the 1.0 version of inspector reads both the rfc format and previous
+draft formats and we will be transitioning imrs to using the 1.0 in the near future
+so a quick overview of the entire processing chain
+that i'm talking about today so we start on each of the individual dns servers we have compactor running
+generating cdns files compressed with xz which is built into
+compactor and periodically these files are uploaded
+to some icann central data servers once on those
+servers um cdns is supplied to octo primarily convert cdns
+to pcap because that's the standard input format for their analysis tools however they are starting
+to explore reading cdns directly for analysis what i'm going to be
+focusing on for the rest of this talk though is the um is the other processing chain
+importing the data into a click house cluster from where it can be viewed through a
+grafana server so looking recapping a little on the
+compactor deployment the compactor is constrained to use a single cpu
+on the dns server we have configured it to collect all dns data um
+that cdns will support which is basically all dns data and for those who've not
+looked at the rfc or explore the tool you can configure it to omit
+uh unrequired items of dns data
+we write x8 compress files to local storage these files are rotated once every five minutes
+that of course is configurable um and the maximum query rates
+that we can sustain um it's very difficult to quantify because it's largely dependent
+on the core that you actually have on your server and the compression the level of compression that you're
+applying but typically on the single cpu we're quite
+happy handling rates or up to about 80 kilo queries per second so that's 160 kilo packets
+per second um compactor itself is multi-threaded internally and given more resources can go
+considerably faster as i've said periodically files are uploaded to place central collection
+server on that collection server the deployment
+that we have for uh processing cdns
+is like this we're using a gear man job server
+and a suite of python a small python programs um to handle
+the data processing i'll emphasize again that each of the python programs is small no more than
+200 lines or so uh the incoming cdns files
+are uploaded to um designated name directories and periodically we scan
+those directories and add new files to gearman
+job cues for processing we have three separate queues the primary cue
+converts cdns to tab separated value files
+using the inspector text templating for import into click house on the successful
+conversion cdns file is archived and the tsv is added to a separate queue
+for import we maintain a separate queue for tsv imports because
+tsv import is a lot quicker process than the conversion and this helps us balance the
+job the job processing better additionally
+we have a third queue which can be optionally used to convert cdns to anonymized
+pcap you can you can activate this queue
+based on a date range and a particular range of servers and so forth and this is typically used
+for preparing inputs for digital
+right let's turn now to the next stage in the chain click outs and now for those who haven't
+come across it click house is an online analytic database it's open source it's focused very much
+on time series data it's column oriented and it uses
+pretty much standard sql and for our purposes it also scores because there is a
+refinement plugin available so grafana can access click house databases
+for graphing a clickhouse is used by a variety of other projects in the dns
+world notably cloudflare but i it's also used by registries in chile and new
+zealand for certain and i suspect very widely used elsewhere as well
+we're using a very simple schema within click house we have a single main table holding
+essentially raw cdns data i.e one query response
+pair of prepared data record per query and response
+the important thing here is that once data is entered into the main table
+click house is configured to perform on insert aggregation of this
+data and currently we're aggregating into separate one second and five minute aggregation
+tables and aggregation is a simple a
+simple process selecting data to be aggregated via a sql materialized view but married with
+specialized storage engines that perform the aggregation there's quite a lot to read on the
+subject of click house aggregation i've included a link within these slides for those who would like to
+learn more the click house deployment for imrs is a
+six server cluster um the import process as we've said is handling roughly 17 billion records
+every day disk usage currently is working out about one terabyte per the 39 billion
+records which is a bit over two days of raw data the management tools that we provide
+which again are these small python programs provide options to retain configurable amounts
+of each type of data so we can have different data retention periods
+for each each type of raw or aggregated data and finally the click
+house cluster serves multiple grafana front-ends
+and as well as grafana of course there is a command line sql interface which can be used for ad
+hoc queries for data analysis to give you some numbers show you what click house is
+capable of when it really gets going um let's take a sample query of counting just
+a simple thing of just counting all the quad a queries received in a week and you'll see that
+even working on the raw data where click house has to chew through 123 billion records or four terabytes
+of data it completes that query in 22 seconds which is not too shabby
+moving to the one second aggregation we see uh considerable reduction in the number
+of rows to be processed which in turn leads to an order of magnitude reduction in the time that it
+takes the query to process the data there is a reduction in the size of data stored
+um it's less than the reduction you see in the number of rows because of the various diff
+all the different aggregations that we are currently making and at the moment we have pretty
+much a full set of aggregations replicating the dsc
+data summaries and if we then move to a five minute aggregation
+you can see there's further impressive drops in the number of rows to be processed and the query speed and indeed the data
+size to be retained as the larger five-minute gap allows the aggregation
+to really crunch down the data
+so we have the data in click house it's been aggravate aggregated and we
+can now move on and talk about visualization for which we're using grafana now i'm sure you've all
+seen a grafana screen you might not have known it as grafana but it's it's a very well-known
+web-based visualization platforms we're using uh three different
+plot types within grafana first and foremost is the time series plots for which grafana was designed in the first place
+um we do have uh several plots that are bar charts
+however now and not time series and if you've ever tried to do a non-time series bar
+chart in grafana and you realize you will know that um this is not a straightforward process
+the solution we've adopted is to pick up one of the existing standard profound clock
+uh grafana plugins uh which enables you to make time series plots
+with the plotly library and extend that plugin to provide access to plotlist bar chart
+capabilities we've submitted our modifications to the um authors of the plexi plug-in
+but to date they have been very very bad at uh
+taking processing merge requests so i've included a link direct to our
+repository we're also displaying map data using a standard
+grafana plug-in um other plug-ins we're using is obviously the click-ass data access plug-in and an
+image rendering plug-in which you now need if you want to download uh pngs of grafana
+graphs you can go and look now at the live public interface at
+stats.dnsikan.org and you'll find it reproduces various dlc-like plots currently this is exposing just five
+minute data and there is a maximum time duration window as we assess the performance impact on
+the cluster i can staff internally have access to
+diff to a different performance setup with access to plots based on one second
+aggregation and various other non-public
+graphs so i'll conclude with just a quick run through some screenshots so
+you can see what you're likely to be up against grafana has limited
+facilities for menus and so forth um so here's our here's the landing page
+as you can see we've just grouped all these plots into various different categories or dashboards as grafana calls them
+let's look first at a typical profound time series graph this is
+queries plotted by different regions above the graph you will see some drop downs
+these drop downs enable you to restrict the graph to subsets of the total available data
+this graph and the next few screenshots are taken off one of the internal systems so you'll see that the end category is
+node that's an individual server for the public system you can only
+filter as far as instance and here's a dashboard with several time
+series plots on it all very familiar grafana type plots
+i mentioned earlier we can do bar charts so here's a bar chart well here's two bar
+charts indeed i'll mention at this point that geographic client
+data and client asn look up we're doing via inspector template mod
+output modifiers which look at perform lookups in max9 geolight
+data and this obviously is done at tsv
+generation time on the icann servers here's a more complex bar chart uh
+i will frankly admit that this the data for this has to arrive in a certain predetermined
+order and you can find yourself writing some rather interesting sequel but nonetheless this
+is a very good example of what it's possible to achieve with bar charts in this system
+a quick look at the geographic location plots
+and and finally uh as i mentioned i think i mentioned
+earlier um we have a series of plots for all um rsac information
+uh the system also generates rsac reports automatically again this is done by
+some of the python management tools and these reports include required
+images of these graphs which is the reason that we require the grafana imaging plug-in but that's the grafana
+implementation detail so in summary for us cdns clickhouse and
+grafana provide a nice flexible package for traffic capture and visualization
+crucially click house aggregations give you a great deal of flexibility in producing trade-offs between storage and
+performance and grafana can reproduce dsc like graphs
+given the right plugins finally the intention is that tools and
+schema and so forth will be open sourced unfortunately we're not quite there yet we probably will not be
+open sourcing the complete imrs solution because it's very specific to imrs but instead
+a toolkit allowing you to build a system like this yourself so thank you very much for your
+patience and listening to the last thought of this over any questions thank you jen that was
+really nice overview of all the tools we actually have some questions here uh
+stephan ublink is asking does the reconstructed pcap have the information to calculate the
+tcp rtt uh no it i don't think it does
+um the reconstruct the tcp sessions are um a complete reconstruction i
+i'm faking it up inside inspector the only timing that we have is the time stamps of uh each
+each individual query or response which is efficient to regenerate rt to
+recover rtt transport level information okay thank you uh thomas krieger asks
+you mentioned that you are able to process about 80k qps with cdns and
+xz compression on a single cpu you have an estimate of the throughput over the cdns without any compression
+um again it's difficult to tell a lot of the overhead a lot a lot of the problems i
+have there are um first of all the overhead of pcap itself um but i off the top of my head
+numbers in the region of um a hundred thousand careers per second i think are possible
+but again you can only at that kind of level apply uh quite light compression um
+in fact um varying the exo compression level if you're using xz
+makes a considerable difference and we've also been looking at z-standard
+compression as a as better compression than gzip but with
+the same cpu overhead as usual zed standard isn't currently part of the
+compactor standard build but we're looking at it okay thank you martin blink
+asked hi hygiene interesting work did you look at other databases but out besides click house and also nice graphene
+dashboards i have noticed you are using free jio ip database from max mind why not use the
+baked version it's not expensive and it supports max mind it's just simply the light is adequate
+for our purposes at the moment uh we've obviously we can use the page we can use the paid version um it just
+so happens that up to now i can't have the masters for it um
+okay and uh other other other place than besides clean house oh yes
+when we when we when we started this project we uh we looked at several other uh
+databases we looked at um hadoop and slack
+[Music] essentially what we found was typically um import speed
+into other databases was was a problem uh several of the databases we evaluated
+we found it very very difficult to import more than 15
+20 000 queries a second which was obviously going to be grossly inadequate
+and click house was basically very easy to set up and get running and um
+and to date we have had no reason to uh reconsider that decision we're
+very pleased with the click house okay thank you uh and the last question
+is from brian dickinson are there any other transport level details from tcp that are captured
+such as mtu options anything else no not not at night as i said the
+cdns is focused very much on just capturing uh dns
+dns level data rather than transport data okay so
+we haven't built that stuff in basically okay thank you for your presentation
+thank you for answering the questions um and with that uh
+this session concludes uh i would like to uh thank to jack jake uh who's doing the
+timekeeping duties and i forgot to mention him at the beginning of the session
+please write the presentations because we really enjoy the feedback and it helps us next
+time when we will be uploading future submissions for the future workshops
+and with that i will hand over to keith with some closing notes for this blog thank you
+okay thank you jan and um thank you to all of our speakers this morning indeed
+um we've got to the end of the workshop so it's time to thank a bunch of people uh once again i'd like to thank um
+ns1 um as being our our late breaking sponsor for this event very much appreciated um we're certainly
+interested in sponsors for your future online events i'd like to thank verisign for being our
+promoter workshop patron for all of our workshops during 2020 online and offline all work members
+and supporters um whose commitment to work has been outstanding during this very strange
+year all the grant funding and donors that we've received this year our program committee who worked really
+hard um under um quite challenging they definitely had to do more than they signed up for a year ago
+again we're looking for program committee volunteers for 2021 and a special thank you to to schumann
+um who has um served on the program committee for three years now and has been chair recently um i'd like to
+thank all of our speakers um again um it's on their own time their own effort
+um they do this um for the online workshops is actually more of their time because we do things like rehearsals and ask additional
+information from them so a big thank you to all of our speakers um and um you know please consider
+supporting an online work event uh via sponsorship patronage or or donation um a reminder
+to please complete the surveys for the uh the workshop we appreciate feedback both on the
+content which the program committee can use to um the program committee can use
+to um generate feedback um and make sure that the content is is matched up what they rate and what
+the audience rates is is compatible um and also on the logistics of the
+meeting where you appreciate your input and feedback on the format particularly with the online
+environment that we're working in um that's it for me for now a reminder that work 34 will be taking
+place almost certainly online in february um they call for presentations that will open shortly the work agm begins
+in one hour for orc members and supporters only at 1500 utc um so thank you all and um
+see you at the agm see you next time
+you
+
+
