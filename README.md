@@ -12,9 +12,13 @@ Create and Activate
 conda create -n orbgpt
 conda activate orbgpt
 ```
-
+Clone the project
+```shell
+git clone git@github.com:leoparente/orb-gpt.git
+```
 Install all requirements
 ```shell
+cd orb-gpt/
 pip install -r requirements.txt
 ```
 
@@ -43,13 +47,18 @@ Chat with ORB docs!
 Question:
 what is orb and pktvisor?
 OrbGPT:
-Orb and pktvisor are two open source tools developed by NS1 Labs. They were created to address the challenge of real-time edge visibility and deep network observability in large, distributed edge environments.
+Orb and pktvisor are two open source tools developed by NS1 Labs. They were created to address the challenge of real-time
+edge visibility and deep network observability in large, distributed edge environments.
 
-pktvisor is a tool designed to analyze and extract information from massive streams of global DNS traffic, which can reach millions of queries per second. It helps identify and respond to malicious activities like DDoS attacks in real-time.
+pktvisor is a tool designed to analyze and extract information from massive streams of global DNS traffic, which can reach
+millions of queries per second. It helps identify and respond to malicious activities like DDoS attacks in real-time.
 
-Orb, on the other hand, is an open source tool based on IoT principles. It provides a user interface (UI), application programming interface (API), and agent communications to orchestrate agents and their policies. Orb allows you to manage and reprogram fleets of pktvisors in real-time, enhancing the functionality of pktvisor by adding critical capabilities for collecting and sinking agent output.
+Orb, on the other hand, is an open source tool based on IoT principles. It provides a user interface (UI), application programming
+interface (API), and agent communications to orchestrate agents and their policies. Orb allows you to manage and reprogram fleets of
+pktvisors in real-time,enhancing the functionality of pktvisor by adding critical capabilities for collecting and sinking agent output.
 
-In summary, pktvisor focuses on real-time analysis of network traffic at the edge, while Orb provides a global orchestration layer to dynamically adjust observability strategies across a fleet of pktvisors and collect data on a second-to-second basis.
+In summary, pktvisor focuses on real-time analysis of network traffic at the edge, while Orb provides a global orchestration layer to
+dynamically adjust observability strategies across a fleet of pktvisors and collect data on a second-to-second basis.
 
 Question:
 can you create a orb policy with a pcap input and a dns v2 handler and a net handler in yaml format? 
@@ -72,9 +81,11 @@ input:
 kind: collection
 ```
 
-In this configuration, we have defined two handlers: `handler_dns_1` of type `dns` with version 2, and `handler_net_1` of type `net`. The input is set to `pcap` with the tap `ethernet`, and the filter is set to capture packets on port 53 (DNS).
+In this configuration, we have defined two handlers: `handler_dns_1` of type `dns` with version 2, and `handler_net_1`
+of type `net`. The input is set to `pcap` with the tap `ethernet`,and the filter is set to capture packets on port 53 (DNS).
 
-Please note that you may need to adjust the tap configuration (`iface`) in the `visor` section and the agent address (`address`) in the `orb` section according to your specific setup.
+Please note that you may need to adjust the tap configuration (`iface`) in the `visor` section and the agent address (`address`)
+in the `orb` section according to your specific setup.
 
 Question:
 quit
