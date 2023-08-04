@@ -1,6 +1,8 @@
 # orb-gpt
 
 Built with [OpenAI](https://github.com/openai/openai-python), [LangChain](https://github.com/langchain-ai/langchain) and based on [PrivateGPT](https://github.com/imartinez/privateGPT). 
+
+Be aware that in order to run this project a `OPENAI_API_KEY` is required. Therefore, it requires a OpenAI account with Payment Method registered. You can check OpenAI Pricing [here](https://openai.com/pricing#language-models).
 ## Environment Setup
 
 Install conda on [Linux](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html), [Windows](https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html) or [macOS](https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html).
