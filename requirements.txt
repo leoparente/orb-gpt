@@ -1,3 +1,4 @@
-openai
 langchain
-chromadb
+supabase
+unstructured
+pymupdf
